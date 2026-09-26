@@ -5,6 +5,11 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  // Test fakes use `any` and late-assigned cleanup handles on purpose.
+  {
+    files: ["tests/**/*.ts"],
+    rules: { "@typescript-eslint/no-explicit-any": "off", "prefer-const": "off" },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

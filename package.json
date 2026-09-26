@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "demo": "tsx scripts/demo.ts"
+    "demo": "tsx scripts/demo.ts",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "test:integration": "node --experimental-strip-types --test tests/integration/*.test.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "mongodb": "^7.6.0",
@@ -17,7 +20,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^22.20.4",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
