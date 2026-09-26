@@ -39,8 +39,15 @@ export type SubmitResult = {
   reason?: string;
 };
 
-// `failure` is set on failed case events; the UI shows these as "past mistakes".
-export type AppEvent = { ts: string; kind: "session" | "case" | "harness"; text: string; failure?: string };
+// Case events carry `caseId`; failed ones also `failure`, shown as "past mistakes".
+export type AppEvent = {
+  ts: string;
+  kind: "session" | "case" | "harness";
+  text: string;
+  caseId?: string;
+  failure?: string;
+  expectedAction?: AgentResponse["action"]; // server-side lesson for the coach's memory
+};
 
 export type AppState = {
   cases: PublicCase[];

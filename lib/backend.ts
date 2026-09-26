@@ -14,7 +14,7 @@ import type {
   SubmitResult,
 } from "@/shared/ui-types";
 import { getHarnessDiff } from "./diff";
-import { formatFailure } from "./format";
+import { ACTION_LABELS, formatFailure } from "./format";
 import { withFallback, withServerSelectionTimeout } from "./resilience";
 import {
   mockCases,
@@ -33,6 +33,8 @@ import { closeMongoDB, getDb } from "@/shared/mongodb";
 // Person 1: cases and policies in Atlas (read-only here).
 import type { Policy as StoredPolicy } from "@/db/helpers";
 import { closeConnection, databaseName, getClient } from "@/db/connection";
+// Person 2: the harness-aware case agent (OpenRouter).
+import { runCase as agentRunCase, type CaseContext } from "@/agent/case-agent";
 
 // ---------- What the adapter needs ----------
 
@@ -55,7 +57,8 @@ type Store = {
 
 type Deps = {
   store: Store;
-  runCase(caseData: Case, policy: Policy, harness: HarnessConfig): Promise<AgentResponse>;
+  // `context` carries the reviewer's past mistakes for the coach's memory.
+  runCase(caseData: Case, policy: Policy, harness: HarnessConfig, context: CaseContext): Promise<AgentResponse>;
   evaluate(caseData: Case, response: AgentResponse): Evaluation | Promise<Evaluation>;
   // Updates the profile with one evaluation and saves it.
   recordEvaluation(userId: string, evaluation: Evaluation): Promise<UserProfile>;
@@ -208,7 +211,9 @@ const mongoStore: Store = {
 
 const realDeps: Deps = {
   store: mongoStore,
-  runCase: mockRunCase, // Person 2: swap in the real runCase here.
+  // Person 2 expects `requiredDocuments`; the UI's policy uses `requiredDocs`.
+  runCase: (caseData, policy, harness, context) =>
+    agentRunCase(caseData, { id: policy.id, text: policy.text, requiredDocuments: policy.requiredDocs ?? [] }, harness, context),
   evaluate,
   recordEvaluation: (userId, evaluation) => updateUserProfile(userId, evaluation),
   evolveHarness,
@@ -245,10 +250,14 @@ export async function processEvaluationAndEvolve(
 
 // ---------- Public API ----------
 
-// What the browser gets: every case without its expected action.
+// What the browser gets: cases and events without answers.
 export async function getState(): Promise<AppState> {
   const state = await loadState();
-  return { ...state, cases: state.cases.map(toPublicCase) };
+  return {
+    ...state,
+    cases: state.cases.map(toPublicCase),
+    events: state.events.map(({ expectedAction: _answer, ...e }) => e),
+  };
 }
 
 async function loadState(): Promise<FullState> {
@@ -287,14 +296,21 @@ export async function submitDecision(submission: ReviewerSubmission): Promise<Su
     state.harness,
   );
 
-  // Coaching from the copilot, using the (possibly new) harness.
-  const coaching = await coach(d, caseData, policy, harness);
+  // Coaching from the copilot, using the (possibly new) harness. Its memory is the
+  // mistakes before this one; the current case's answer is shown to the reviewer anyway.
+  const coaching = await coach(d, caseData, policy, harness, state.events);
 
   const now = new Date().toISOString();
   const failure = evaluation.correct ? undefined : formatFailure(evaluation.failureType);
   const events: AppEvent[] = [
     ...state.events,
-    { ts: now, kind: "case", text: `Case ${caseIndex + 1}: ${failure ?? "correct"}`, ...(failure && { failure }) },
+    {
+      ts: now,
+      kind: "case",
+      text: `Case ${caseIndex + 1}: ${failure ?? "correct"}`,
+      caseId: caseData.id,
+      ...(failure && { failure, expectedAction: caseData.expectedAction }),
+    },
   ];
   if (diff.changed) events.push({ ts: now, kind: "harness", text: `Harness updated to v${harness.version}` });
 
@@ -324,7 +340,7 @@ export async function getCoaching(caseId: string): Promise<Coaching> {
   if (!caseData) throw new Error(`Unknown case: ${caseId}`);
   const policy = state.policies.find((p) => p.id === caseData.policyId);
   if (!policy) throw new Error(`Unknown policy: ${caseData.policyId}`);
-  const { response } = await coach(d, caseData, policy, state.harness);
+  const { response } = await coach(d, caseData, policy, state.harness, state.events);
   return { response };
 }
 
@@ -340,16 +356,26 @@ export async function closeBackend(): Promise<void> {
 
 // ---------- Helpers ----------
 
+// Past mistakes as short lessons for the coach's memory, excluding the current case.
+function lessons(events: AppEvent[], currentCaseId: string): NonNullable<CaseContext["priorFailures"]> {
+  return events
+    .filter((e) => e.kind === "case" && e.failure && e.caseId && e.caseId !== currentCaseId)
+    .map((e) => ({
+      caseId: e.caseId!,
+      lesson: `Mistake: ${e.failure}${e.expectedAction ? `; the right call was ${ACTION_LABELS[e.expectedAction].toLowerCase()}` : ""}.`,
+    }));
+}
+
 function toPublicCase(caseData: Case): PublicCase {
   const { id, scenario, skill, policyId } = caseData;
   return { id, scenario, skill, policyId };
 }
 
-// runCase with a time limit. If it's slow or fails, the mock coach stands in: its
-// text follows the same harness, so the demo still shows the right behavior.
-function coach(d: Deps, caseData: Case, policy: Policy, harness: HarnessConfig): Promise<AgentResponse> {
+// runCase with a time limit. If it's slow or fails (e.g. no OPENROUTER_API_KEY), the
+// mock coach stands in: its text follows the same harness, so the demo still works.
+function coach(d: Deps, caseData: Case, policy: Policy, harness: HarnessConfig, events: AppEvent[]): Promise<AgentResponse> {
   return withFallback(
-    () => d.runCase(caseData, policy, harness),
+    () => d.runCase(caseData, policy, harness, { priorFailures: lessons(events, caseData.id) }),
     () => mockRunCase(caseData, policy, harness),
     COACH_TIMEOUT_MS,
     "runCase",

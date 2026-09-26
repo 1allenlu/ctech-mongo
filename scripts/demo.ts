@@ -49,6 +49,9 @@ async function main() {
   console.log(`\nCase 3 (${c3.id}): ✅ correct. Coaching with Harness v${r3.harness.version}:`);
   console.log(r3.coaching.response.replace(/^/gm, "  "));
 
+  // The browser's state must never contain an answer, even after mistakes.
+  assert.equal(JSON.stringify(await getState()).includes("expectedAction"), false);
+
   console.log("\nEvents:");
   for (const e of (await getState()).events) console.log(`  ${e.text}`);
 
