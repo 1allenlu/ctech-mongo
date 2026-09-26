@@ -1,0 +1,12 @@
+{
+  "name": "training-case-agent",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "demo": "tsx --env-file=.env agent/demo.ts",
+    "demo:live": "tsx --env-file=.env agent/demo.ts --live",
+    "test": "tsx --test agent/case-agent.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": { "@types/node": "^20.0.0", "tsx": "^4.0.0", "typescript": "^5.0.0" }
+}
