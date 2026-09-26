@@ -14,7 +14,7 @@ export type AgentResponse = {
 
 export type Evaluation = {
   correct: boolean;
-  skill: string;
+  skill: Case["skill"];
   failureType?: string;
 };
 
@@ -33,6 +33,8 @@ export type UserProfile = {
 };
 
 export type HarnessConfig = {
+  // The consuming coach should check escalation criteria before finalizing an action.
+  requireEscalationCheck?: boolean;
   version: number;
   coachingMode: "direct" | "socratic";
   includePriorFailures: boolean;
