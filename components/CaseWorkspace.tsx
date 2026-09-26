@@ -62,7 +62,7 @@ export default function CaseWorkspace({
         {harness.tools.policyLookup && (
           <div className="mt-5 rounded-xl bg-canvas p-4">
             <Label>
-              Policy {policy.id} · {policy.title}
+              Policy · {policy.title}
             </Label>
             <p className="text-[15px] leading-relaxed">{policy.text}</p>
             {docs.length > 0 && (

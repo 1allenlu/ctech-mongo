@@ -17,6 +17,7 @@ import { withFallback, withServerSelectionTimeout } from "./resilience";
 import {
   mockCases,
   mockPolicies,
+  toPolicy,
   mockRunCase,
   mockEvaluate,
   mockUpdateUserProfile,
@@ -27,6 +28,9 @@ import { evaluate } from "@/evaluator/evaluator";
 import { updateUserProfile } from "@/user-model/userModel";
 import { evolveHarness, saveHarnessVersion } from "@/harness/evolver";
 import { closeMongoDB, getDb } from "@/shared/mongodb";
+// Person 1: cases and policies in Atlas (read-only here).
+import type { Policy as StoredPolicy } from "@/db/helpers";
+import { closeConnection, databaseName, getClient } from "@/db/connection";
 
 // ---------- What the adapter needs ----------
 
@@ -150,10 +154,18 @@ async function loadSession(userId: string): Promise<SessionDoc> {
   return session!;
 }
 
+// Person 1's helpers load one case or policy at a time; the UI needs the full list.
+async function person1Db() {
+  return (await getClient()).db(databaseName());
+}
+
 const mongoStore: Store = {
-  // Person 1 hasn't delivered cases/policies yet; these stay mocks until then.
-  loadCases: async () => mockCases,
-  loadPolicies: async () => mockPolicies,
+  loadCases: async () =>
+    (await person1Db()).collection<Case>("cases").find({}, { projection: { _id: 0 } }).sort({ id: 1 }).toArray(),
+  loadPolicies: async () => {
+    const docs = await (await person1Db()).collection<StoredPolicy>("policies").find({}, { projection: { _id: 0 } }).toArray();
+    return docs.map(toPolicy);
+  },
   loadProfile: async (userId) => {
     const doc = await (await getDb()).collection<ProfileDoc>("user_profiles").findOne({ _id: userId });
     return doc ? { userId, skills: doc.skills, failures: doc.failures } : freshProfile(userId);
@@ -309,7 +321,7 @@ export async function resetDemo(): Promise<AppState> {
 
 // For scripts: close the MongoDB connection so the process can exit.
 export async function closeBackend(): Promise<void> {
-  await closeMongoDB();
+  await Promise.all([closeMongoDB(), closeConnection()]);
 }
 
 // ---------- Helpers ----------
