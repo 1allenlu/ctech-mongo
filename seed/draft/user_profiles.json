@@ -1,0 +1,15 @@
+[
+  {
+    "userId": "demo-reviewer-001",
+    "skills": {
+      "clarification": 0.5,
+      "policy_reasoning": 0.5,
+      "escalation": 0.5
+    },
+    "failures": {
+      "clarification": 0,
+      "policy_reasoning": 0,
+      "escalation": 0
+    }
+  }
+]

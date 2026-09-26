@@ -1,0 +1,30 @@
+[
+  {
+    "id": "policy-imaging-001",
+    "title": "Fictional outpatient imaging authorization",
+    "text": "Training-only policy, not real insurance or medical guidance. For this simulation, approve a routine outpatient MRI authorization only when active membership, an in-network imaging provider, a signed specialist referral, and a treatment summary documenting at least four completed weeks of conservative treatment are all confirmed. Request more information if a required document or eligibility fact is missing. If complete documentation confirms fewer than four weeks, escalate for senior review; junior reviewers cannot approve exceptions. Any explicit exception request must be escalated, even if documentation is missing. Escalation takes precedence over a request for information.",
+    "requiredDocumentation": [
+      "Signed specialist referral",
+      "Treatment summary documenting completed weeks of conservative treatment"
+    ]
+  },
+  {
+    "id": "policy-therapy-001",
+    "title": "Fictional outpatient therapy authorization",
+    "text": "Training-only policy, not real insurance or medical guidance. For this simulation, approve an outpatient therapy request only when membership is active, the provider is in network, a signed clinician referral and a treatment plan stating the requested visit count are present, and the requested visits plus visits already used total no more than twelve in the benefit year. Request more information if any required document, eligibility fact, or visit count is missing. If confirmed counts exceed twelve, or an exception is explicitly requested, escalate to a senior reviewer. Escalation takes precedence over a request for information. Junior reviewers cannot grant exceptions.",
+    "requiredDocumentation": [
+      "Signed clinician referral",
+      "Treatment plan stating the requested visit count"
+    ]
+  },
+  {
+    "id": "policy-reimbursement-001",
+    "title": "Fictional routine reimbursement review",
+    "text": "Training-only policy, not real insurance or medical guidance. For this simulation, approve a routine reimbursement only when membership was active on the service date, the service is confirmed covered, the provider is in network, and the packet contains a completed claim form, an itemized invoice, and proof of payment. The filing interval must be no more than ninety days after service, and the requested reimbursement must be no more than five hundred dollars. Request more information when a required document or eligibility fact is missing. Escalate a confirmed filing interval above ninety days, a requested amount above five hundred dollars, an explicit exception request, or conflicting submitted records. Escalation takes precedence over a request for information. Junior reviewers cannot decide these exceptions or resolve conflicting records themselves.",
+    "requiredDocumentation": [
+      "Completed claim form",
+      "Itemized invoice",
+      "Proof of payment"
+    ]
+  }
+]

@@ -1,0 +1,12 @@
+[
+  {
+    "userId": "demo-reviewer-001",
+    "version": 1,
+    "coachingMode": "direct",
+    "includePriorFailures": false,
+    "tools": {
+      "policyLookup": true,
+      "documentationChecker": false
+    }
+  }
+]

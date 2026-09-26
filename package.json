@@ -1,0 +1,22 @@
+{
+  "name": "ctech-mongo-data",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "seed": "tsx scripts/seed.ts",
+    "demo:read": "tsx scripts/demo-read.ts",
+    "demo:live": "tsx scripts/demo-live.ts",
+    "harness:diff": "tsx scripts/harness-diff.ts"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.4",
+    "mongodb": "^7.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
