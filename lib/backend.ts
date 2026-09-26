@@ -219,6 +219,17 @@ export async function submitDecision(submission: ReviewerSubmission): Promise<Su
   };
 }
 
+// Coaching for a case before the reviewer decides, with the current harness.
+export async function getCoaching(caseId: string): Promise<AgentResponse> {
+  const d = deps();
+  const state = await getState();
+  const caseData = state.cases.find((c) => c.id === caseId);
+  if (!caseData) throw new Error(`Unknown case: ${caseId}`);
+  const policy = state.policies.find((p) => p.id === caseData.policyId);
+  if (!policy) throw new Error(`Unknown policy: ${caseData.policyId}`);
+  return d.runCase(caseData, policy, state.harness);
+}
+
 export async function resetDemo(): Promise<AppState> {
   await deps().store.reset(USER_ID);
   return getState();
