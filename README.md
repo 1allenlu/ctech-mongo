@@ -1,4 +1,6 @@
-# Evaluation and Harness Evolution
+# PolicyPilot
+
+PolicyPilot is an adaptive training coach for junior health-insurance reviewers. It learns from mistakes on fictional cases and adjusts its coaching style, memory, document checks, and escalation guardrails, with versioned harness history in MongoDB Atlas.
 
 Requires Node.js 22.18+ and `npm install`. Uses the existing `.env` `MONGODB_URI` and `hackathon` database from `test_db.py`; optionally set `MONGODB_DB`. The TypeScript runtime shares one MongoClient across calls (the Python/VS Code connection cannot itself be shared across processes).
 
@@ -46,6 +48,6 @@ The app coaching path now applies the runtime guardrails to both live and fallba
 
 The coach panel reports live/mock/fallback execution, Atlas/in-memory storage, and runtime interventions. Known fictional case narratives receive explicit authored evidence through `lib/case-evidence.ts`; changed or unknown narratives are not enriched. Enabled escalation checks focus coaching on the supplied escalation reason even when the original recommendation was already escalation. These deterministic checks verify harness enforcement and do not establish improved live-model quality or human learning. Existing saved versions are not retroactively revalidated.
 
-## Guided UI demo
+## Manual demo sequence
 
-The dashboard's “Watch the harness adapt” panel submits four clearly labeled simulated reviewer decisions through the existing API: approve cases 1 and 2 (documentation failures), then cases 7 and 8 (escalation failures). Click one step at a time to inspect the coaching and validation result. Expected accepted versions are v1 → v2 → v3; the normal probe gate still decides promotion. Then select “See adapted coach on Case 9” to show conflict-aware Socratic coaching. The short walkthrough deliberately skips cases 3–6; statistics count actual submissions only. Use Start over explicitly before demonstrating from a used session. In real mode these are Atlas writes, just like manual submissions; they are not a hidden animation or forced version change.
+Use Start over, then choose Approve on cases 1 and 2 to trigger the clarification adaptation. Choose Request more info on case 3 and Approve on cases 4–6. Choose Approve on cases 7 and 8 to trigger the escalation adaptation, then Escalate on case 9. The incorrect answers are intentional for demonstrating v1 → v2 → v3; every mutation still passes through the normal validation gate.
