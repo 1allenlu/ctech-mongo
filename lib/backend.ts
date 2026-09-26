@@ -6,6 +6,8 @@ import type {
   Policy,
   AppEvent,
   AppState,
+  Coaching,
+  PublicCase,
   EvolutionResult,
   HarnessVersionRecord,
   ReviewerSubmission,
@@ -33,6 +35,9 @@ import type { Policy as StoredPolicy } from "@/db/helpers";
 import { closeConnection, databaseName, getClient } from "@/db/connection";
 
 // ---------- What the adapter needs ----------
+
+// Server-side state: like AppState, but cases still carry their answers.
+type FullState = Omit<AppState, "cases"> & { cases: Case[] };
 
 // Where the case pointer and event log live. UI-only, not part of teammates' data.
 type Progress = Pick<AppState, "currentCaseIndex" | "events">;
@@ -240,7 +245,13 @@ export async function processEvaluationAndEvolve(
 
 // ---------- Public API ----------
 
+// What the browser gets: every case without its expected action.
 export async function getState(): Promise<AppState> {
+  const state = await loadState();
+  return { ...state, cases: state.cases.map(toPublicCase) };
+}
+
+async function loadState(): Promise<FullState> {
   const { store } = deps();
   const [cases, policies, profile, history, progress] = await Promise.all([
     store.loadCases(),
@@ -254,7 +265,7 @@ export async function getState(): Promise<AppState> {
 
 export async function submitDecision(submission: ReviewerSubmission): Promise<SubmitResult> {
   const d = deps();
-  const state = await getState();
+  const state = await loadState();
 
   const caseIndex = state.cases.findIndex((c) => c.id === submission.caseId);
   if (caseIndex === -1) throw new Error(`Unknown case: ${submission.caseId}`);
@@ -295,6 +306,7 @@ export async function submitDecision(submission: ReviewerSubmission): Promise<Su
   return {
     evaluation,
     coaching,
+    expectedAction: caseData.expectedAction,
     profile,
     harness,
     mutated: diff.changed,
@@ -304,14 +316,16 @@ export async function submitDecision(submission: ReviewerSubmission): Promise<Su
 }
 
 // Coaching for a case before the reviewer decides, with the current harness.
-export async function getCoaching(caseId: string): Promise<AgentResponse> {
+// Only the text is returned: the coach's action would give the answer away.
+export async function getCoaching(caseId: string): Promise<Coaching> {
   const d = deps();
-  const state = await getState();
+  const state = await loadState();
   const caseData = state.cases.find((c) => c.id === caseId);
   if (!caseData) throw new Error(`Unknown case: ${caseId}`);
   const policy = state.policies.find((p) => p.id === caseData.policyId);
   if (!policy) throw new Error(`Unknown policy: ${caseData.policyId}`);
-  return coach(d, caseData, policy, state.harness);
+  const { response } = await coach(d, caseData, policy, state.harness);
+  return { response };
 }
 
 export async function resetDemo(): Promise<AppState> {
@@ -325,6 +339,11 @@ export async function closeBackend(): Promise<void> {
 }
 
 // ---------- Helpers ----------
+
+function toPublicCase(caseData: Case): PublicCase {
+  const { id, scenario, skill, policyId } = caseData;
+  return { id, scenario, skill, policyId };
+}
 
 // runCase with a time limit. If it's slow or fails, the mock coach stands in: its
 // text follows the same harness, so the demo still shows the right behavior.

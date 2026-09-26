@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { AgentResponse, HarnessConfig } from "@/shared/types";
-import type { AppState, HarnessDiffItem, SubmitResult } from "@/shared/ui-types";
+import type { AppState, Coaching, HarnessDiffItem, SubmitResult } from "@/shared/ui-types";
 import { api } from "@/lib/client";
 import Header from "./Header";
 import CaseWorkspace from "./CaseWorkspace";
@@ -24,7 +24,7 @@ export default function Dashboard({ showMockIndicator, usingMocks }: { showMockI
   const result = submitted?.result ?? null;
   const [mutation, setMutation] = useState<Mutation | null>(null);
   const [busy, setBusy] = useState<"submit" | "reset" | null>(null);
-  const [preCoaching, setPreCoaching] = useState<{ key: string; coaching: AgentResponse } | null>(null);
+  const [preCoaching, setPreCoaching] = useState<{ key: string; coaching: Coaching } | null>(null);
 
   function show(s: AppState) {
     setState(s);

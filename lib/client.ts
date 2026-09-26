@@ -1,6 +1,5 @@
 // Browser-side calls to the API routes in app/api.
-import type { AgentResponse } from "@/shared/types";
-import type { AppState, ReviewerSubmission, SubmitResult } from "@/shared/ui-types";
+import type { AppState, Coaching, ReviewerSubmission, SubmitResult } from "@/shared/ui-types";
 
 // Longer than the server's own limits (5s database, 10s coach), so those answer first.
 const REQUEST_TIMEOUT_MS = 20_000;
@@ -28,5 +27,5 @@ export const api = {
   state: () => call<AppState>("/api/state"),
   submit: (submission: ReviewerSubmission) => call<SubmitResult>("/api/submit", submission),
   reset: () => call<AppState>("/api/reset", {}),
-  coach: (caseId: string) => call<AgentResponse>("/api/coach", { caseId }),
+  coach: (caseId: string) => call<Coaching>("/api/coach", { caseId }),
 };

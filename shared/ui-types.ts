@@ -1,5 +1,11 @@
 import type { Case, AgentResponse, Evaluation, UserProfile, HarnessConfig } from "./types";
 
+// A case as the browser sees it: the answer key stays on the server until submit.
+export type PublicCase = Omit<Case, "expectedAction">;
+
+// Coaching shown before a decision: text only, without the coach's recommended action.
+export type Coaching = Pick<AgentResponse, "response">;
+
 export type Policy = { id: string; title: string; text: string; requiredDocs?: string[] };
 
 export type HarnessDiffItem = { field: string; from: unknown; to: unknown };
@@ -25,6 +31,7 @@ export type ReviewerSubmission = { caseId: string; action: AgentResponse["action
 export type SubmitResult = {
   evaluation: Evaluation;
   coaching: AgentResponse; // copilot's coaching output from runCase
+  expectedAction: AgentResponse["action"]; // revealed only after submitting
   profile: UserProfile;
   harness: HarnessConfig;
   mutated: boolean;
@@ -36,7 +43,7 @@ export type SubmitResult = {
 export type AppEvent = { ts: string; kind: "session" | "case" | "harness"; text: string; failure?: string };
 
 export type AppState = {
-  cases: Case[];
+  cases: PublicCase[];
   policies: Policy[];
   currentCaseIndex: number;
   profile: UserProfile;

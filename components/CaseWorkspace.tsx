@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { AgentResponse, Case, HarnessConfig } from "@/shared/types";
-import type { Policy, SubmitResult } from "@/shared/ui-types";
+import type { AgentResponse, HarnessConfig } from "@/shared/types";
+import type { Policy, PublicCase, SubmitResult } from "@/shared/ui-types";
 import { ACTION_LABELS, SKILL_LABELS, formatFailure } from "@/lib/format";
 import { Card, Label, Pill } from "./ui";
 
@@ -22,7 +22,7 @@ export default function CaseWorkspace({
   onSubmit,
   onNext,
 }: {
-  caseData: Case;
+  caseData: PublicCase;
   index: number;
   total: number;
   policy: Policy;
@@ -156,7 +156,7 @@ export default function CaseWorkspace({
           </button>
         ) : (
           <>
-            <Result result={result} expected={caseData.expectedAction} />
+            <Result result={result} />
             {isLast ? (
               <p className="mt-4 text-center text-sm text-muted">That&apos;s every case. Choose Start over to run it again.</p>
             ) : (
@@ -210,7 +210,8 @@ function Dots({ index, total }: { index: number; total: number }) {
   );
 }
 
-function Result({ result, expected }: { result: SubmitResult; expected: AgentResponse["action"] }) {
+function Result({ result }: { result: SubmitResult }) {
+  const expected = result.expectedAction;
   const { correct, failureType } = result.evaluation;
   const failure = formatFailure(failureType);
   return (

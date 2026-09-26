@@ -1,4 +1,5 @@
 import type { AgentResponse, HarnessConfig } from "@/shared/types";
+import type { Coaching } from "@/shared/ui-types";
 import { ACTION_LABELS, FIELD_LABELS, HARNESS_ROWS, formatValue } from "@/lib/format";
 import { Card, Label, Pill } from "./ui";
 
@@ -12,7 +13,8 @@ export default function CoachPanel({
   changeKey,
 }: {
   harness: HarnessConfig;
-  coaching: AgentResponse | null;
+  // Before submit this is text only; after submit it includes the coach's action.
+  coaching: (Coaching & Partial<Pick<AgentResponse, "action">>) | null;
   loading: boolean;
   submitted: boolean;
   pastMistakes: string[];
@@ -56,7 +58,7 @@ export default function CoachPanel({
           </p>
         )}
 
-        {coaching && submitted && (
+        {coaching?.action && submitted && (
           <p className="mt-3 text-sm text-muted">
             Coach&apos;s answer: <span className="font-medium text-ink">{ACTION_LABELS[coaching.action]}</span>
           </p>
