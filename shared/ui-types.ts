@@ -4,6 +4,16 @@ export type Policy = { id: string; title: string; text: string; requiredDocs?: s
 
 export type HarnessDiffItem = { field: string; from: unknown; to: unknown };
 
+export type HarnessDiff = { changed: boolean; changes: HarnessDiffItem[]; reason?: string };
+
+// Output of processEvaluationAndEvolve: everything that changes after one decision.
+export type EvolutionResult = {
+  evaluation: Evaluation;
+  profile: UserProfile;
+  harness: HarnessConfig;
+  diff: HarnessDiff;
+};
+
 export type HarnessVersionRecord = {
   config: HarnessConfig;
   reason: string; // e.g. "2 failures: missing required documentation"

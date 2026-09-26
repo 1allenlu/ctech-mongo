@@ -29,7 +29,11 @@ async function main() {
       );
     }
     state = await getState();
+    assert.equal(state.profile.failures.clarification, n);
+    assert.equal(state.harnessHistory.length, n === 2 ? 2 : 1);
   }
+  assert.equal(state.harness.version, 2);
+  assert.equal(state.harnessHistory[1].reason, "2 clarification failures: missing required documentation");
 
   // Case 3: coaching is now Socratic, references past failures, and shows the checklist.
   const c3 = state.cases[state.currentCaseIndex];

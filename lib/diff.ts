@@ -1,5 +1,12 @@
 import type { HarnessConfig } from "@/shared/types";
-import type { HarnessDiffItem } from "@/shared/ui-types";
+import type { HarnessDiff, HarnessDiffItem } from "@/shared/ui-types";
+
+// Ready-to-render summary of a harness change, for the mutation banner.
+export function getHarnessDiff(oldHarness: HarnessConfig, newHarness: HarnessConfig, reason?: string): HarnessDiff {
+  const changes = diffHarness(oldHarness, newHarness);
+  const changed = changes.length > 0 || oldHarness.version !== newHarness.version;
+  return changed ? { changed, changes, reason } : { changed, changes };
+}
 
 // Flattens nested fields to dotted paths, e.g. "tools.documentationChecker".
 // `version` is left out: the UI shows it separately as "v1 → v2".
