@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { AgentResponse, HarnessConfig } from "@/shared/types";
 import type { AppState, Coaching, HarnessDiffItem, SubmitResult } from "@/shared/ui-types";
+import { demoProgress, demoSequence } from "@/lib/demo-sequence";
 import { api } from "@/lib/client";
 import Header from "./Header";
 import CaseWorkspace from "./CaseWorkspace";
@@ -23,7 +24,7 @@ export default function Dashboard({ showMockIndicator, usingMocks }: { showMockI
   const [submitted, setSubmitted] = useState<{ result: SubmitResult; harness: HarnessConfig } | null>(null);
   const result = submitted?.result ?? null;
   const [mutation, setMutation] = useState<Mutation | null>(null);
-  const [busy, setBusy] = useState<"submit" | "reset" | null>(null);
+  const [busy, setBusy] = useState<"submit" | "reset" | "demo" | null>(null);
   const [preCoaching, setPreCoaching] = useState<{ key: string; coaching: Coaching } | null>(null);
 
   function show(s: AppState) {
@@ -49,7 +50,7 @@ export default function Dashboard({ showMockIndicator, usingMocks }: { showMockI
   // Socratic coaching is safe to show before the reviewer decides: it asks
   // questions instead of giving the answer. Direct coaching waits for submit.
   const coachKey =
-    state && current && !result && state.harness.coachingMode === "socratic"
+    state && current && !result && busy !== "demo" && state.harness.coachingMode === "socratic"
       ? `${current.id}@v${state.harness.version}`
       : null;
 
@@ -74,12 +75,37 @@ export default function Dashboard({ showMockIndicator, usingMocks }: { showMockI
     try {
       const r = await api.submit({ caseId: current.id, action, rationale });
       setSubmitted({ result: r, harness: state.harness });
+      if (r.validation && !r.validation.accepted) setMutation(null);
       if (r.mutated) {
         setMutation({ from: state.harness.version, to: r.harness.version, diff: r.diff, reason: r.reason, key: Date.now() });
       }
       setState(await api.state());
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function runDemoStep() {
+    if (!state || busy) return;
+    const progress = demoProgress(state);
+    const step = demoSequence[progress.completed];
+    if (!progress.matches || !progress.available || !step) return;
+    setBusy("demo");
+    setError(null);
+    setPreCoaching(null);
+    setViewIndex(state.cases.findIndex(c => c.id === step.caseId));
+    setSubmitted(null);
+    try {
+      const r = await api.submit({ caseId: step.caseId, action: "approve", rationale: "Guided demo: intentionally simulated reviewer mistake." });
+      setSubmitted({ result: r, harness: state.harness });
+      if (r.validation && !r.validation.accepted) setMutation(null);
+      if (r.mutated) setMutation({ from: state.harness.version, to: r.harness.version, diff: r.diff, reason: r.reason, key: Date.now() });
+      setState(await api.state());
+    } catch (e) {
+      setError(`${(e as Error).message} Check the session before retrying; the submission may have been saved.`);
+      try { setState(await api.state()); } catch { /* Keep the original error. */ }
     } finally {
       setBusy(null);
     }
@@ -104,6 +130,9 @@ export default function Dashboard({ showMockIndicator, usingMocks }: { showMockI
       setBusy(null);
     }
   }
+
+  const demo = state ? demoProgress(state) : null;
+  const demoStep = demo?.matches ? demoSequence[demo.completed] : undefined;
 
   const isLast = !!state && viewIndex === state.cases.length - 1;
 
@@ -135,6 +164,37 @@ export default function Dashboard({ showMockIndicator, usingMocks }: { showMockI
         <p className="p-8 text-center text-sm text-muted">{error ? "" : "Loading…"}</p>
       ) : (
         <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 lg:px-8">
+          <section className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-5" aria-label="Guided harness demo">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold">Watch the harness adapt</h2>
+                <p className="mt-1 text-sm">Simulated reviewer mistakes → candidate probes → accepted changes → different coaching.</p>
+                <p className="mt-1 text-xs text-muted">Uses real submissions and the normal acceptance gate. In Atlas mode these actions are saved. Policy-reasoning cases are skipped for this short walkthrough.</p>
+              </div>
+              <span className="rounded-full bg-white px-3 py-1 text-sm font-semibold">Active: v{state.harness.version}</span>
+            </div>
+            <div className="my-4 grid gap-3 sm:grid-cols-3">
+              {[
+                ["1. Starting coach", "Direct guidance; no added checks", true],
+                ["2. Documentation adaptation", "Guiding questions + prior mistakes + checklist", state.harness.tools.documentationChecker],
+                ["3. Escalation adaptation", "Conflict-aware coaching + escalation guardrail", state.harness.requireEscalationCheck],
+              ].map(([title, detail, active]) => <div key={String(title)} className={`rounded-xl border p-3 ${active ? "border-blue-400 bg-white" : "border-gray-200"}`}>
+                <p className="text-sm font-semibold">{title}</p><p className="mt-1 text-xs text-muted">{detail}</p>
+                <p className="mt-2 text-xs">{active ? "Reached" : "Not yet activated"}</p>
+              </div>)}
+            </div>
+            {!demo?.available ? <p className="text-sm">This walkthrough requires the original fictional demo cases.</p>
+              : !demo.matches ? <p className="text-sm">Use <strong>Start over</strong> to begin the four-step walkthrough from v1. This clears the current demo session.</p>
+              : demoStep ? <div className="flex flex-wrap items-center gap-3">
+                <button disabled={!!busy} onClick={runDemoStep} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy === "demo" ? "Submitting and evaluating…" : demoStep.label}</button>
+                <p className="max-w-xl text-sm">{demoStep.detail}</p>
+                <span className="text-xs text-muted">{demo.completed}/4 simulated decisions</span>
+              </div>
+              : <div className="flex flex-wrap items-center gap-3">
+                <p className="text-sm">Walkthrough complete. Inspect the validation results and coach history, then try the conflicting-records case.</p>
+                <button disabled={!!busy} onClick={() => { setViewIndex(state.cases.findIndex(c => c.id === "case-009")); setSubmitted(null); }} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">See adapted coach on Case 9</button>
+              </div>}
+          </section>
           <StatsBar
             stats={{
               answered: caseEvents.length,
@@ -182,6 +242,12 @@ export default function Dashboard({ showMockIndicator, usingMocks }: { showMockI
             <div className="flex flex-col gap-3">
               <ColumnTitle>Progress</ColumnTitle>
               <div className="flex flex-col gap-4">
+                {state.latestValidation && <section role="status" className="rounded-2xl bg-white p-5 ring-1 ring-hairline">
+                  <h3 className="font-semibold">Candidate v{state.latestValidation.toVersion}: {state.latestValidation.accepted ? "Accepted" : "Rejected"}</h3>
+                  <p className="mt-2 text-sm">Probe accuracy: {state.latestValidation.beforeCorrect}/{state.latestValidation.total} → {state.latestValidation.afterCorrect}/{state.latestValidation.total}</p>
+                  <p className="mt-2 text-sm">{state.latestValidation.reason}</p>
+                  <p className="mt-2 text-xs text-muted">Deterministic guardrail probes · not a live-model benchmark. Active harness: v{state.harness.version}.</p>
+                </section>}
                 {mutation && <MutationCard key={mutation.key} mutation={mutation} />}
                 <SkillsCard profile={state.profile} />
                 <HarnessHistory history={state.harnessHistory} />

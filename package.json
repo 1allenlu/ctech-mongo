@@ -16,7 +16,8 @@
     "demo:live": "tsx scripts/demo-live.ts",
     "harness:diff": "tsx scripts/harness-diff.ts",
     "agent:demo": "tsx --env-file-if-exists=.env agent/demo.ts",
-    "agent:demo:live": "tsx --env-file-if-exists=.env agent/demo.ts --live"
+    "agent:demo:live": "tsx --env-file-if-exists=.env agent/demo.ts --live",
+    "demo:harness": "tsx scripts/showcase.ts"
   },
   "dependencies": {
     "dotenv": "^18.0.4",

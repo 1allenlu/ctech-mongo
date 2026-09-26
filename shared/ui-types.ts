@@ -1,10 +1,13 @@
+import type { validateHarnessCandidate } from "../harness/validation";
+export type ValidationReport = Awaited<ReturnType<typeof validateHarnessCandidate>> & { fromVersion: number; toVersion: number; benchmark: "deterministic guardrail probes" };
+export type ExecutionInfo = { source: "live" | "mock" | "fallback"; storage: "Atlas" | "In-memory"; interventions: string[] };
 import type { Case, AgentResponse, Evaluation, UserProfile, HarnessConfig } from "./types";
 
 // A case as the browser sees it: the answer key stays on the server until submit.
 export type PublicCase = Omit<Case, "expectedAction">;
 
 // Coaching shown before a decision: text only, without the coach's recommended action.
-export type Coaching = Pick<AgentResponse, "response">;
+export type Coaching = Pick<AgentResponse, "response"> & { execution?: ExecutionInfo };
 
 export type Policy = { id: string; title: string; text: string; requiredDocs?: string[] };
 
@@ -18,6 +21,7 @@ export type EvolutionResult = {
   profile: UserProfile;
   harness: HarnessConfig;
   diff: HarnessDiff;
+  validation?: ValidationReport;
 };
 
 export type HarnessVersionRecord = {
@@ -30,7 +34,8 @@ export type ReviewerSubmission = { caseId: string; action: AgentResponse["action
 
 export type SubmitResult = {
   evaluation: Evaluation;
-  coaching: AgentResponse; // copilot's coaching output from runCase
+  validation?: ValidationReport;
+  coaching: AgentResponse & { execution?: ExecutionInfo }; // copilot's coaching output from runCase
   expectedAction: AgentResponse["action"]; // revealed only after submitting
   profile: UserProfile;
   harness: HarnessConfig;
@@ -57,4 +62,5 @@ export type AppState = {
   harness: HarnessConfig;
   harnessHistory: HarnessVersionRecord[];
   events: AppEvent[];
+  latestValidation?: ValidationReport;
 };

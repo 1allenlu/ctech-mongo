@@ -3,6 +3,8 @@
 // (USE_MOCKS unset or "true") or real modules (USE_MOCKS=false).
 import type { Case, AgentResponse, Evaluation, UserProfile, HarnessConfig } from "@/shared/types";
 import type {
+  ValidationReport,
+  ExecutionInfo,
   Policy,
   AppEvent,
   AppState,
@@ -14,6 +16,10 @@ import type {
   SubmitResult,
 } from "@/shared/ui-types";
 import { getHarnessDiff } from "./diff";
+import { harnessProbes, probeCoach } from "@/harness/probes";
+import { validateHarnessCandidate } from "@/harness/validation";
+import { withCaseEvidence } from "./case-evidence";
+import { runWithHarness } from "@/harness/runtime";
 import { ACTION_LABELS, formatFailure } from "./format";
 import { withFallback, withServerSelectionTimeout } from "./resilience";
 import {
@@ -53,6 +59,8 @@ type Store = {
   loadProgress(userId: string): Promise<Progress>;
   saveProgress(userId: string, progress: Progress): Promise<void>;
   reset(userId: string): Promise<void>;
+  saveExperiment(userId: string, before: HarnessConfig, candidate: HarnessConfig, validation: ValidationReport): Promise<void>;
+  loadValidation(userId: string): Promise<ValidationReport | undefined>;
 };
 
 type Deps = {
@@ -104,7 +112,7 @@ const initialRecord = (createdAt: string): HarnessVersionRecord => ({
 
 // ---------- Mock wiring ----------
 
-type MemoryData = { profile: UserProfile; history: HarnessVersionRecord[]; progress: Progress };
+type MemoryData = { experiments?: ValidationReport[]; profile: UserProfile; history: HarnessVersionRecord[]; progress: Progress };
 
 function freshMemory(userId: string): MemoryData {
   const now = new Date().toISOString();
@@ -118,7 +126,9 @@ const memory = (userId: string) => ((g.__mockData ??= {})[userId] ??= freshMemor
 
 const mockDeps: Deps = {
   store: {
-    loadCases: async () => mockCases,
+    loadCases: async () => mockCases.map(withCaseEvidence),
+    saveExperiment: async (userId, _before, _candidate, validation) => { (memory(userId).experiments ??= []).push(validation); },
+    loadValidation: async (userId) => memory(userId).experiments?.at(-1),
     loadPolicies: async () => mockPolicies,
     loadProfile: async (userId) => memory(userId).profile,
     loadHarnessHistory: async (userId) => memory(userId).history,
@@ -168,8 +178,15 @@ async function person1Db() {
 }
 
 const mongoStore: Store = {
+  saveExperiment: async (userId, before, candidate, validation) => {
+    await (await getDb()).collection("harness_experiments").insertOne({ userId, before, candidate, validation, reason: validation.reason, timestamp: new Date() });
+  },
+  loadValidation: async (userId) => {
+    const record = await (await getDb()).collection<{ userId: string; validation: ValidationReport; timestamp: Date }>("harness_experiments").findOne({ userId }, { sort: { timestamp: -1 } });
+    return record?.validation;
+  },
   loadCases: async () =>
-    (await person1Db()).collection<Case>("cases").find({}, { projection: { _id: 0 } }).sort({ id: 1 }).toArray(),
+    (await person1Db()).collection<Case>("cases").find({}, { projection: { _id: 0 } }).sort({ id: 1 }).toArray().then(cases => cases.map(withCaseEvidence)),
   loadPolicies: async () => {
     const docs = await (await person1Db()).collection<StoredPolicy>("policies").find({}, { projection: { _id: 0 } }).toArray();
     return docs.map(toPolicy);
@@ -204,6 +221,7 @@ const mongoStore: Store = {
     await Promise.all([
       db.collection<ProfileDoc>("user_profiles").deleteOne({ _id: userId }),
       db.collection("harness_versions").deleteMany({ userId }),
+      db.collection("harness_experiments").deleteMany({ userId }),
       db.collection<SessionDoc>("sessions").deleteOne({ _id: userId }),
     ]);
   },
@@ -239,13 +257,23 @@ export async function processEvaluationAndEvolve(
   const evaluation = await d.evaluate(caseData, agentResponse);
   const profile = await d.recordEvaluation(userId, evaluation);
 
-  const harness = await d.evolveHarness(profile, currentHarness);
-  const evolved = harness.version !== currentHarness.version;
-  const diff = getHarnessDiff(currentHarness, harness, evolved ? mutationReason(profile, evaluation) : undefined);
-
-  if (evolved) await d.saveHarnessVersion(userId, currentHarness, harness, diff.reason!);
-
-  return { evaluation, profile, harness, diff };
+  const candidate = await d.evolveHarness(profile, currentHarness);
+  let harness = currentHarness;
+  let validation: ValidationReport | undefined;
+  if (candidate.version !== currentHarness.version) {
+    validation = {
+      ...await validateHarnessCandidate(currentHarness, candidate, harnessProbes, probeCoach),
+      fromVersion: currentHarness.version, toVersion: candidate.version,
+      benchmark: "deterministic guardrail probes",
+    };
+    await d.store.saveExperiment(userId, currentHarness, candidate, validation);
+    if (validation.accepted) {
+      await d.saveHarnessVersion(userId, currentHarness, candidate, `${mutationReason(profile, evaluation)}. ${validation.reason}`);
+      harness = candidate;
+    }
+  }
+  const diff = getHarnessDiff(currentHarness, harness, validation?.accepted ? mutationReason(profile, evaluation) : undefined);
+  return { evaluation, profile, harness, diff, validation };
 }
 
 // ---------- Public API ----------
@@ -262,14 +290,15 @@ export async function getState(): Promise<AppState> {
 
 async function loadState(): Promise<FullState> {
   const { store } = deps();
-  const [cases, policies, profile, history, progress] = await Promise.all([
+  const [cases, policies, profile, history, progress, latestValidation] = await Promise.all([
     store.loadCases(),
     store.loadPolicies(),
     store.loadProfile(USER_ID),
     store.loadHarnessHistory(USER_ID),
     store.loadProgress(USER_ID),
+    store.loadValidation(USER_ID),
   ]);
-  return { cases, policies, profile, harness: history[history.length - 1].config, harnessHistory: history, ...progress };
+  return { cases, policies, profile, harness: history[history.length - 1].config, harnessHistory: history, latestValidation, ...progress };
 }
 
 export async function submitDecision(submission: ReviewerSubmission): Promise<SubmitResult> {
@@ -289,7 +318,7 @@ export async function submitDecision(submission: ReviewerSubmission): Promise<Su
     confidence: 1,
   };
 
-  const { evaluation, profile, harness, diff } = await processEvaluationAndEvolve(
+  const { evaluation, profile, harness, diff, validation } = await processEvaluationAndEvolve(
     USER_ID,
     caseData,
     reviewerDecision,
@@ -325,6 +354,7 @@ export async function submitDecision(submission: ReviewerSubmission): Promise<Su
     expectedAction: caseData.expectedAction,
     profile,
     harness,
+    validation,
     mutated: diff.changed,
     diff: diff.changes,
     reason: diff.reason,
@@ -340,8 +370,8 @@ export async function getCoaching(caseId: string): Promise<Coaching> {
   if (!caseData) throw new Error(`Unknown case: ${caseId}`);
   const policy = state.policies.find((p) => p.id === caseData.policyId);
   if (!policy) throw new Error(`Unknown policy: ${caseData.policyId}`);
-  const { response } = await coach(d, caseData, policy, state.harness, state.events);
-  return { response };
+  const { response, execution } = await coach(d, caseData, policy, state.harness, state.events);
+  return { response, execution };
 }
 
 export async function resetDemo(): Promise<AppState> {
@@ -373,13 +403,27 @@ function toPublicCase(caseData: Case): PublicCase {
 
 // runCase with a time limit. If it's slow or fails (e.g. no OPENROUTER_API_KEY), the
 // mock coach stands in: its text follows the same harness, so the demo still works.
-function coach(d: Deps, caseData: Case, policy: Policy, harness: HarnessConfig, events: AppEvent[]): Promise<AgentResponse> {
-  return withFallback(
-    () => d.runCase(caseData, policy, harness, { priorFailures: lessons(events, caseData.id) }),
-    () => mockRunCase(caseData, policy, harness),
+async function coach(d: Deps, caseData: Case, policy: Policy, harness: HarnessConfig, events: AppEvent[]): Promise<AgentResponse & { execution: ExecutionInfo }> {
+  let source: ExecutionInfo["source"] = d === realDeps ? "live" : "mock";
+  const priorFailures = lessons(events, caseData.id);
+  const result = await runWithHarness(caseData, {
+    policyText: policy.text,
+    requiredDocuments: policy.requiredDocs ?? [],
+    providedDocuments: caseData.providedDocuments,
+    escalationRequired: caseData.escalationRequired,
+    escalationReason: caseData.escalationReason,
+    priorFailures: priorFailures.map(failure => failure.lesson),
+  }, harness, () => withFallback(
+    () => d.runCase(caseData, policy, harness, {
+      priorFailures,
+      providedDocuments: caseData.providedDocuments,
+      escalationRequired: caseData.escalationRequired,
+    }),
+    () => { source = "fallback"; return mockRunCase(caseData, policy, harness); },
     COACH_TIMEOUT_MS,
     "runCase",
-  );
+  ));
+  return { ...result.response, execution: { source, storage: d === realDeps ? "Atlas" : "In-memory", interventions: result.interventions } };
 }
 
 function mutationReason(profile: UserProfile, evaluation: Evaluation): string {

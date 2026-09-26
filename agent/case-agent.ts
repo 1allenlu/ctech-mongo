@@ -8,6 +8,7 @@ export type Policy = {
 export type CaseContext = {
   /** Explicit document IDs from the case record; omitted means unknown. */
   providedDocuments?: string[];
+  escalationRequired?: boolean;
   priorFailures?: { caseId: string; lesson: string }[];
 };
 type Options = CaseContext & {
@@ -23,6 +24,7 @@ export function buildContext(caseData: Case, policy: Policy, harness: HarnessCon
     case: { id: caseData.id, scenario: caseData.scenario },
     policy: harness.tools.policyLookup ? { id: policy.id, text: policy.text } : null,
     priorFailures: harness.includePriorFailures ? (context.priorFailures ?? []).slice(-3).map(f => ({ caseId: f.caseId, lesson: f.lesson })) : [],
+    escalationCheck: harness.requireEscalationCheck ? { required: context.escalationRequired ?? null } : null,
     documentationCheck: harness.tools.documentationChecker ? {
       required: policy.requiredDocuments,
       missing: context.providedDocuments === undefined ? null : policy.requiredDocuments.filter(d => !context.providedDocuments!.includes(d)),
@@ -66,6 +68,7 @@ export async function runCase(caseData: Case, policy: Policy, harness: HarnessCo
     harness.coachingMode === 'socratic' ? 'MANDATORY: response must consist of one or two guiding QUESTIONS ending in question marks. Ask the trainee to identify missing evidence and decide the next step. Do not state the answer or tell them what to do. Example style: "Which required evidence is absent, and how does that affect your next step?" The action field is a separate backend recommendation, hidden from the trainee.' : 'Give short, direct coaching with the relevant policy reason.',
     'Use only the supplied context and tool results. If policy is unavailable, request information or escalate; do not invent coverage.',
     'A missing=null document result means unknown, not complete. Never say all requirements are met just because documents are present.',
+    'If escalationCheck.required is true, recommend escalation. If it is null, verify escalation criteria rather than assuming they are clear.',
     'Return only the requested JSON object.',
   ].join('\n');
   let result: Response;

@@ -1,3 +1,4 @@
+import { evolveHarness } from "../harness/evolver";
 // Mock versions of teammates' functions. Signatures match Person 2/3's exactly,
 // so /lib/backend.ts can swap them for the real modules one at a time.
 import type { Case, AgentResponse, Evaluation, UserProfile, HarnessConfig } from "@/shared/types";
@@ -79,15 +80,5 @@ export function mockUpdateUserProfile(profile: UserProfile, evaluation: Evaluati
 // Person 3: evolveHarness. Documentation misses are clarification failures, so
 // 2+ clarification failures on a v1-style harness triggers the v2 mutation.
 export function mockEvolveHarness(profile: UserProfile, harness: HarnessConfig): HarnessConfig {
-  const alreadyEvolved =
-    harness.coachingMode === "socratic" && harness.includePriorFailures && harness.tools.documentationChecker;
-  if (profile.failures.clarification < 2 || alreadyEvolved) return harness;
-
-  return {
-    ...harness,
-    version: harness.version + 1,
-    coachingMode: "socratic",
-    includePriorFailures: true,
-    tools: { ...harness.tools, documentationChecker: true },
-  };
+  return evolveHarness(profile, harness);
 }

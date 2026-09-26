@@ -36,6 +36,10 @@ export default function CoachPanel({
         <Pill tone={harness.version > 1 ? "accent" : "neutral"}>Harness v{harness.version}</Pill>
       </div>
 
+      {coaching?.execution && <div className="mt-3 text-xs text-muted">
+        <p>{coaching.execution.source === "live" ? "Live model" : coaching.execution.source === "fallback" ? "Fallback coaching" : "Mock coaching"} · {coaching.execution.storage}</p>
+        {coaching.execution.interventions.map(item => <p key={item}>Guardrail: {item.replaceAll("_", " ")}</p>)}
+      </div>}
       <div className="mt-4 min-h-24">
         {harness.includePriorFailures && pastMistakes.length > 0 && (
           <div className="mb-3">

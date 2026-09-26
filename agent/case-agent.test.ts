@@ -43,3 +43,10 @@ test('live transport sends safe context, validates output, and surfaces credit e
     else process.env.OPENROUTER_API_KEY = previous;
   }
 });
+
+test('escalation context is gated and distinguishes unknown from clear', () => {
+  assert.equal(buildContext(exampleCase, examplePolicy, harnessV1, { escalationRequired: true }).escalationCheck, null);
+  const harness = { ...harnessV1, requireEscalationCheck: true };
+  assert.deepEqual(buildContext(exampleCase, examplePolicy, harness, { escalationRequired: true }).escalationCheck, { required: true });
+  assert.deepEqual(buildContext(exampleCase, examplePolicy, harness).escalationCheck, { required: null });
+});

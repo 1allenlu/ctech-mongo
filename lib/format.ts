@@ -27,6 +27,7 @@ export const HARNESS_ROWS: { field: string; value: (h: HarnessConfig) => unknown
   { field: "coachingMode", value: (h) => h.coachingMode },
   { field: "includePriorFailures", value: (h) => h.includePriorFailures },
   { field: "tools.documentationChecker", value: (h) => h.tools.documentationChecker },
+  { field: "requireEscalationCheck", value: (h) => h.requireEscalationCheck ?? false },
 ];
 
 const FAILURE_LABELS: Record<string, string> = {

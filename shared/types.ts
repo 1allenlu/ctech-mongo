@@ -4,6 +4,10 @@ export type Case = {
   expectedAction: "approve" | "request_more_info" | "escalate";
   skill: "clarification" | "policy_reasoning" | "escalation";
   policyId: string;
+  // Explicit fictional case evidence, separate from the evaluator answer key.
+  providedDocuments?: string[];
+  escalationRequired?: boolean;
+  escalationReason?: string;
 };
 
 export type AgentResponse = {
