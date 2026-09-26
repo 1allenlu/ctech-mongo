@@ -1,0 +1,52 @@
+{
+  "verifiedAt": "2026-09-26T17:58:24.366Z",
+  "status": "passed",
+  "database": "hackathon",
+  "userId": "demo-verification-93c4a138-338c-48fc-84a4-1cdd03c8310c",
+  "simulation": "Fixed test inputs; no coaching model or production evaluator was invoked.",
+  "documentsCreated": {
+    "user_profiles": 1,
+    "harness_versions": 2,
+    "runs": 2
+  },
+  "completedCaseIds": [
+    "case-001",
+    "case-002"
+  ],
+  "nextCaseId": "case-003",
+  "persistedProfile": {
+    "userId": "demo-verification-93c4a138-338c-48fc-84a4-1cdd03c8310c",
+    "skills": {
+      "clarification": 0.3,
+      "policy_reasoning": 0.5,
+      "escalation": 0.5
+    },
+    "failures": {
+      "clarification": 2,
+      "policy_reasoning": 0,
+      "escalation": 0
+    }
+  },
+  "harnessVersions": [
+    {
+      "version": 1,
+      "coachingMode": "direct",
+      "includePriorFailures": false,
+      "tools": {
+        "policyLookup": true,
+        "documentationChecker": false
+      }
+    },
+    {
+      "version": 2,
+      "coachingMode": "socratic",
+      "includePriorFailures": true,
+      "tools": {
+        "policyLookup": true,
+        "documentationChecker": true
+      }
+    }
+  ],
+  "duplicateSubmissionResult": "already_completed",
+  "sharedDemoReviewer": "demo-reviewer-001 was not written to"
+}

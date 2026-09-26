@@ -1,0 +1,65 @@
+[
+  {
+    "id": "case-001",
+    "scenario": "Fictional training case. A member requests routine MRI authorization. Membership is active and the imaging provider is in network. A signed specialist referral is attached. The member says they completed six weeks of conservative treatment, but the required treatment summary is missing. No exception is requested. What should the reviewer do next?",
+    "expectedAction": "request_more_info",
+    "skill": "clarification",
+    "policyId": "policy-imaging-001"
+  },
+  {
+    "id": "case-002",
+    "scenario": "Fictional training case. A member requests four outpatient therapy visits. Membership is active, the provider is in network, and two visits have already been used this benefit year. A treatment plan requesting four visits is attached, but the signed clinician referral is missing. No exception is requested. What should the reviewer do next?",
+    "expectedAction": "request_more_info",
+    "skill": "clarification",
+    "policyId": "policy-therapy-001"
+  },
+  {
+    "id": "case-003",
+    "scenario": "Fictional training case. A member requests a two-hundred-dollar reimbursement thirty days after a covered service. Membership was active on the service date and the provider is in network. The completed claim form and itemized invoice are attached, but proof of payment is missing. The member says they paid in full. There are no conflicting records or exception requests. What should the reviewer do next?",
+    "expectedAction": "request_more_info",
+    "skill": "clarification",
+    "policyId": "policy-reimbursement-001"
+  },
+  {
+    "id": "case-004",
+    "scenario": "Fictional training case. A member requests routine MRI authorization. Membership is active and the imaging provider is in network. The packet contains a signed specialist referral and a treatment summary confirming exactly four completed weeks of conservative treatment. No exception is requested. What should the reviewer do next?",
+    "expectedAction": "approve",
+    "skill": "policy_reasoning",
+    "policyId": "policy-imaging-001"
+  },
+  {
+    "id": "case-005",
+    "scenario": "Fictional training case. A member requests five outpatient therapy visits and has already used seven visits this benefit year. Membership is active and the provider is in network. The signed clinician referral and treatment plan requesting five visits are attached. No exception is requested. What should the reviewer do next?",
+    "expectedAction": "approve",
+    "skill": "policy_reasoning",
+    "policyId": "policy-therapy-001"
+  },
+  {
+    "id": "case-006",
+    "scenario": "Fictional training case. A member requests a five-hundred-dollar reimbursement exactly ninety days after a covered service. Membership was active on the service date and the provider is in network. A completed claim form, itemized invoice, and proof of payment are attached and agree with each other. No exception is requested. What should the reviewer do next?",
+    "expectedAction": "approve",
+    "skill": "policy_reasoning",
+    "policyId": "policy-reimbursement-001"
+  },
+  {
+    "id": "case-007",
+    "scenario": "Fictional training case. A member requests routine MRI authorization. Membership is active, the imaging provider is in network, and a signed specialist referral is attached. The treatment summary confirms only two completed weeks of conservative treatment. The member explicitly requests an exception to the four-week requirement. What should the reviewer do next?",
+    "expectedAction": "escalate",
+    "skill": "escalation",
+    "policyId": "policy-imaging-001"
+  },
+  {
+    "id": "case-008",
+    "scenario": "Fictional training case. A member requests four outpatient therapy visits and has already used ten visits this benefit year. Membership is active and the provider is in network. The signed clinician referral and treatment plan requesting four visits are attached. Both visit counts are confirmed. What should the reviewer do next?",
+    "expectedAction": "escalate",
+    "skill": "escalation",
+    "policyId": "policy-therapy-001"
+  },
+  {
+    "id": "case-009",
+    "scenario": "Fictional training case. A member requests a three-hundred-dollar reimbursement thirty days after a covered service. Membership was active on the service date and the provider is in network. A completed claim form, itemized invoice, and proof of payment are attached. The invoice lists one service date and proof of payment lists a different service date for the same claim; the conflict is unresolved. What should the reviewer do next?",
+    "expectedAction": "escalate",
+    "skill": "escalation",
+    "policyId": "policy-reimbursement-001"
+  }
+]

@@ -5,6 +5,10 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  // `const { _id, ...rest } = doc` is the usual way to drop a field.
+  {
+    rules: { "@typescript-eslint/no-unused-vars": ["error", { ignoreRestSiblings: true }] },
+  },
   // Test fakes use `any` and late-assigned cleanup handles on purpose.
   {
     files: ["tests/**/*.ts"],
