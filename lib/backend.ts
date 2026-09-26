@@ -3,6 +3,7 @@
 import type { Case, AgentResponse, Evaluation, UserProfile, HarnessConfig } from "@/shared/types";
 import type {
   Policy,
+  AppEvent,
   AppState,
   EvolutionResult,
   HarnessVersionRecord,
@@ -10,6 +11,7 @@ import type {
   SubmitResult,
 } from "@/shared/ui-types";
 import { getHarnessDiff } from "./diff";
+import { formatFailure } from "./format";
 import {
   mockCases,
   mockPolicies,
@@ -194,12 +196,10 @@ export async function submitDecision(submission: ReviewerSubmission): Promise<Su
   const coaching = await d.runCase(caseData, policy, harness);
 
   const now = new Date().toISOString();
-  const events = [
+  const failure = evaluation.correct ? undefined : formatFailure(evaluation.failureType);
+  const events: AppEvent[] = [
     ...state.events,
-    {
-      ts: now,
-      text: `Case ${caseIndex + 1}: ${evaluation.correct ? "✅ correct" : `❌ ${formatFailure(evaluation.failureType)}`}`,
-    },
+    { ts: now, text: `Case ${caseIndex + 1}: ${failure ? `❌ ${failure}` : "✅ correct"}`, ...(failure && { failure }) },
   ];
   if (diff.changed) events.push({ ts: now, text: `Harness mutated to v${harness.version}` });
 
@@ -236,17 +236,6 @@ export async function resetDemo(): Promise<AppState> {
 }
 
 // ---------- Helpers ----------
-
-const FAILURE_LABEL: Record<string, string> = {
-  missing_documentation: "missing required documentation",
-  missed_escalation: "missed an escalation",
-  unnecessary_hold: "held a claim that should be approved",
-};
-
-function formatFailure(failureType?: string): string {
-  if (!failureType) return "incorrect";
-  return FAILURE_LABEL[failureType] ?? failureType.replaceAll("_", " ");
-}
 
 function mutationReason(profile: UserProfile, evaluation: Evaluation): string {
   const skill = evaluation.skill as keyof UserProfile["failures"];
