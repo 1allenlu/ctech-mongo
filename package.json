@@ -5,7 +5,8 @@
   "scripts": {
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "test:integration": "node --experimental-strip-types --test tests/integration/*.test.ts"
+    "test:integration": "node --experimental-strip-types --test tests/integration/*.test.ts",
+    "demo:harness": "node --experimental-strip-types scripts/showcase.ts"
   },
   "dependencies": {
     "mongodb": "^6.20.0"

@@ -27,3 +27,17 @@ if (nextHarness.version !== currentHarness.version) {
 Run `npm test` and `npm run typecheck`. Tests use a small in-memory database boundary fake and do not write to Atlas. Persistence functions accept an optional final `Db` argument for testing or an existing TypeScript app connection.
 
 Run `npm run test:integration` to exercise two failed clarification cases against the configured MongoDB database. This requires `MONGODB_URI` (loaded from `.env`) and verifies the persisted profile and evolved harness. It uses a unique test user and deletes only that user's records afterward. `npm test` remains database-free.
+
+## Harness showcase
+
+Run `npm run demo:harness` with the existing Atlas `.env` configured. It creates two uniquely named fictional reviewers, records two different mistake patterns through the real evaluator/profile functions, proposes configurations with `evolveHarness`, and tests each candidate on the same three probes. It then runs the same next case with each accepted harness and prints the actual context, raw response, guardrail intervention, and final response.
+
+The demo deliberately uses one fixed, weak coach that always recommends approval. It makes no LLM call: improvements demonstrate harness enforcement, not model intelligence or improved human learning. The proposal mechanism is the existing deterministic rules, not an LLM mutation agent. Probes are small synthetic examples, not a general quality benchmark.
+
+`harness/runtime.ts` exports `runWithHarness(caseData, evidence, harness, coach)`. Pass a teammate's model adapter as the `coach` callback; it receives answer-key-free case data, style instructions, gated policy/memory context, and enabled check results. Supply document inventory and escalation criteria from the fictional case/policy layer, never from `expectedAction`. Unknown document inventory is treated as unknown, not complete. Escalation overrides take precedence over documentation overrides. Raw responses and interventions are returned for audit. The action is a backend recommendation; show only appropriate coaching text to a trainee before they decide. Socratic style is instructed but arbitrary model output is not fully style-validated.
+
+`harness/validation.ts` exports `validateHarnessCandidate(before, candidate, probes, coach)`. It accepts a candidate only when action correctness improves and no previously correct probe regresses. Use the same model/settings for both runs; with a live stochastic model, repeat measurements before drawing strong conclusions. Failed model calls throw and prevent promotion.
+
+The demo saves accepted mutations using the existing `saveHarnessVersion` function and records both accepted and rejected attempts with probe evidence in `harness_experiments`. It also proposes removing the learned behavior and shows that this regression is rejected. Existing callers of `evolveHarness` are unchanged: to use gated promotion, call validation before saving. Atlas demo records are retained under the printed unique run prefix for inspection; this does not alter existing demo users. Unit tests remain offline.
+
+Policy-change detection and a live model-powered proposal agent are not implemented in this showcase.
