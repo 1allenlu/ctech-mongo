@@ -73,7 +73,7 @@ function freshMemory(userId: string): MemoryData {
   return {
     profile: freshProfile(userId),
     history: [{ config: HARNESS_V1, reason: "Initial harness", createdAt: now }],
-    progress: { currentCaseIndex: 0, events: [{ ts: now, text: "Session started on Harness v1" }] },
+    progress: { currentCaseIndex: 0, events: [{ ts: now, kind: "session", text: "Session started on Harness v1" }] },
   };
 }
 
@@ -199,9 +199,9 @@ export async function submitDecision(submission: ReviewerSubmission): Promise<Su
   const failure = evaluation.correct ? undefined : formatFailure(evaluation.failureType);
   const events: AppEvent[] = [
     ...state.events,
-    { ts: now, text: `Case ${caseIndex + 1}: ${failure ?? "correct"}`, ...(failure && { failure }) },
+    { ts: now, kind: "case", text: `Case ${caseIndex + 1}: ${failure ?? "correct"}`, ...(failure && { failure }) },
   ];
-  if (diff.changed) events.push({ ts: now, text: `Harness updated to v${harness.version}` });
+  if (diff.changed) events.push({ ts: now, kind: "harness", text: `Harness updated to v${harness.version}` });
 
   await d.store.saveProgress(USER_ID, {
     currentCaseIndex: Math.max(state.currentCaseIndex, Math.min(caseIndex + 1, state.cases.length - 1)),

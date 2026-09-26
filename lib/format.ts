@@ -1,5 +1,5 @@
 // Display labels shared by the server (event log) and the UI.
-import type { AgentResponse, Case } from "@/shared/types";
+import type { AgentResponse, Case, HarnessConfig } from "@/shared/types";
 
 export const ACTION_LABELS: Record<AgentResponse["action"], string> = {
   approve: "Approve",
@@ -21,6 +21,13 @@ export const FIELD_LABELS: Record<string, string> = {
   "tools.policyLookup": "Policy lookup",
   requireEscalationCheck: "Escalation check",
 };
+
+// The three mutable harness properties, in display order.
+export const HARNESS_ROWS: { field: string; value: (h: HarnessConfig) => unknown }[] = [
+  { field: "coachingMode", value: (h) => h.coachingMode },
+  { field: "includePriorFailures", value: (h) => h.includePriorFailures },
+  { field: "tools.documentationChecker", value: (h) => h.tools.documentationChecker },
+];
 
 const FAILURE_LABELS: Record<string, string> = {
   missing_documentation: "missing required documentation",

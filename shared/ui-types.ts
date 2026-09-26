@@ -32,8 +32,8 @@ export type SubmitResult = {
   reason?: string;
 };
 
-// `failure` is set on failed-case events; the UI shows these as "recent mistakes".
-export type AppEvent = { ts: string; text: string; failure?: string };
+// `failure` is set on failed case events; the UI shows these as "past mistakes".
+export type AppEvent = { ts: string; kind: "session" | "case" | "harness"; text: string; failure?: string };
 
 export type AppState = {
   cases: Case[];

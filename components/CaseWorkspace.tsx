@@ -4,9 +4,10 @@ import { useState } from "react";
 import type { AgentResponse, Case, HarnessConfig } from "@/shared/types";
 import type { Policy, SubmitResult } from "@/shared/ui-types";
 import { ACTION_LABELS, SKILL_LABELS, formatFailure } from "@/lib/format";
-import { Card, Pill } from "./ui";
+import { Card, Label, Pill } from "./ui";
 
 const ACTIONS = Object.keys(ACTION_LABELS) as AgentResponse["action"][];
+const STEPS = ["Review", "Decide", "Feedback"];
 
 export default function CaseWorkspace({
   caseData,
@@ -38,33 +39,49 @@ export default function CaseWorkspace({
   const [checkedDocs, setCheckedDocs] = useState<string[]>([]);
   const locked = !!result || disabled;
   const docs = policy.requiredDocs ?? [];
+  const step = result ? 2 : action ? 1 : 0;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <Card>
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <p className="text-sm font-medium text-muted">
-            Case {index + 1} of {total} · {SKILL_LABELS[caseData.skill]}
-          </p>
-          <Progress index={index} total={total} />
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <h3 className="text-2xl font-semibold tracking-tight">Case {index + 1}</h3>
+            <Pill>{SKILL_LABELS[caseData.skill]}</Pill>
+          </div>
+          <Dots index={index} total={total} />
         </div>
-        <p className="text-[19px] leading-relaxed">{caseData.scenario}</p>
+
+        <Stepper step={step} />
+
+        <div className="mt-5">
+          <Label>Claim</Label>
+          <p className="text-[18px] leading-relaxed">{caseData.scenario}</p>
+        </div>
 
         {harness.tools.policyLookup && (
-          <details open className="group mt-5 border-t border-hairline pt-4">
-            <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium">
-              <span>
-                Policy {policy.id} · {policy.title}
-              </span>
-              <span className="text-muted transition group-open:rotate-90">›</span>
-            </summary>
-            <p className="mt-2 text-[15px] leading-relaxed text-muted">{policy.text}</p>
-          </details>
+          <div className="mt-5 rounded-xl bg-canvas p-4">
+            <Label>
+              Policy {policy.id} · {policy.title}
+            </Label>
+            <p className="text-[15px] leading-relaxed">{policy.text}</p>
+            {docs.length > 0 && (
+              <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                <span className="text-xs font-medium text-muted">Requires</span>
+                {docs.map((d) => (
+                  <span key={d} className="rounded-full bg-white px-2.5 py-0.5 text-xs ring-1 ring-black/[0.06]">
+                    {d}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </Card>
 
       {harness.tools.documentationChecker && docs.length > 0 && (
-        <Card title="Document checklist" right={<Pill tone="accent">New</Pill>} className="ring-2 ring-accent/30">
+        <Card title="Document checklist" right={<Pill tone="accent">Added by coach</Pill>} className="ring-2 ring-accent/30">
+          <p className="-mt-1 mb-2 text-sm text-muted">Tick each document you can find in the claim.</p>
           <ul className="divide-y divide-hairline">
             {docs.map((doc) => {
               const checked = checkedDocs.includes(doc);
@@ -94,8 +111,9 @@ export default function CaseWorkspace({
               );
             })}
           </ul>
-          <p className="mt-2 text-xs text-muted">
-            {checkedDocs.length} of {docs.length} found in the file
+          <p className={`mt-2 text-xs font-medium ${checkedDocs.length < docs.length ? "text-muted" : "text-good"}`}>
+            {checkedDocs.length} of {docs.length} found
+            {checkedDocs.length < docs.length && " — anything missing means more info is needed"}
           </p>
         </Card>
       )}
@@ -110,7 +128,7 @@ export default function CaseWorkspace({
               onClick={() => setAction(a)}
               disabled={locked}
               className={`rounded-lg px-2 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed ${
-                action === a ? "bg-white shadow-sm" : "text-muted hover:text-ink"
+                action === a ? "bg-white shadow-sm ring-1 ring-black/[0.06]" : "text-muted hover:text-ink"
               }`}
             >
               {ACTION_LABELS[a]}
@@ -134,7 +152,7 @@ export default function CaseWorkspace({
             disabled={!action || disabled}
             className="mt-3 w-full rounded-full bg-accent px-4 py-3 text-[15px] font-medium text-white transition hover:brightness-110 disabled:opacity-30"
           >
-            {submitting ? "Checking…" : "Submit"}
+            {submitting ? "Checking…" : action ? `Submit: ${ACTION_LABELS[action]}` : "Choose an action"}
           </button>
         ) : (
           <>
@@ -157,9 +175,29 @@ export default function CaseWorkspace({
   );
 }
 
-function Progress({ index, total }: { index: number; total: number }) {
+function Stepper({ step }: { step: number }) {
   return (
-    <div className="flex gap-1.5" aria-hidden>
+    <ol className="mt-4 flex items-center gap-2 text-xs font-medium" aria-label="Steps">
+      {STEPS.map((s, i) => (
+        <li key={s} className="flex flex-1 items-center gap-2" aria-current={i === step ? "step" : undefined}>
+          <span
+            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] ${
+              i < step ? "bg-ink text-white" : i === step ? "bg-accent text-white" : "bg-canvas text-muted"
+            }`}
+          >
+            {i < step ? "✓" : i + 1}
+          </span>
+          <span className={i === step ? "text-ink" : "text-muted"}>{s}</span>
+          {i < STEPS.length - 1 && <span className="h-px flex-1 bg-hairline" />}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function Dots({ index, total }: { index: number; total: number }) {
+  return (
+    <div className="flex gap-1.5" aria-label={`Case ${index + 1} of ${total}`}>
       {Array.from({ length: total }, (_, i) => (
         <span
           key={i}
@@ -191,12 +229,16 @@ function Result({ result, expected }: { result: SubmitResult; expected: AgentRes
       </span>
       <div>
         <p className={`font-semibold ${correct ? "text-good" : "text-bad"}`}>{correct ? "Correct" : "Not quite"}</p>
-        {!correct && (
-          <p className="mt-0.5 text-[15px] text-ink">
-            {failure.charAt(0).toUpperCase() + failure.slice(1)}. The right call was{" "}
-            <span className="font-medium">{ACTION_LABELS[expected].toLowerCase()}</span>.
-          </p>
-        )}
+        <p className="mt-0.5 text-[15px] text-ink">
+          {correct ? (
+            "Nice work. See what the coach says."
+          ) : (
+            <>
+              {failure.charAt(0).toUpperCase() + failure.slice(1)}. The right call was{" "}
+              <span className="font-medium">{ACTION_LABELS[expected].toLowerCase()}</span>.
+            </>
+          )}
+        </p>
       </div>
     </div>
   );
