@@ -12,10 +12,10 @@ export function Card({
   className?: string;
 }) {
   return (
-    <section className={`rounded-xl border border-slate-200 bg-white p-4 shadow-sm ${className}`}>
+    <section className={`rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] ${className}`}>
       {(title || right) && (
         <div className="mb-3 flex items-center justify-between gap-2">
-          {title && <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{title}</h2>}
+          {title && <h2 className="text-[15px] font-semibold">{title}</h2>}
           {right}
         </div>
       )}
@@ -24,18 +24,16 @@ export function Card({
   );
 }
 
-const BADGE_TONES = {
-  slate: "bg-slate-100 text-slate-700 ring-slate-300",
-  indigo: "bg-indigo-50 text-indigo-700 ring-indigo-300",
-  violet: "bg-violet-50 text-violet-700 ring-violet-300",
-  amber: "bg-amber-50 text-amber-800 ring-amber-300",
-  rose: "bg-rose-50 text-rose-700 ring-rose-300",
-  emerald: "bg-emerald-50 text-emerald-700 ring-emerald-300",
+const PILL_TONES = {
+  neutral: "bg-canvas text-muted",
+  accent: "bg-accent-soft text-accent",
+  good: "bg-good-soft text-good",
+  bad: "bg-bad-soft text-bad",
 };
 
-export function Badge({ tone = "slate", children }: { tone?: keyof typeof BADGE_TONES; children: ReactNode }) {
+export function Pill({ tone = "neutral", children }: { tone?: keyof typeof PILL_TONES; children: ReactNode }) {
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ${BADGE_TONES[tone]}`}>
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${PILL_TONES[tone]}`}>
       {children}
     </span>
   );

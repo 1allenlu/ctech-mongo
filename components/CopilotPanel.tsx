@@ -1,6 +1,6 @@
 import type { AgentResponse, HarnessConfig } from "@/shared/types";
 import { ACTION_LABELS } from "@/lib/format";
-import { Badge, Card } from "./ui";
+import { Card, Pill } from "./ui";
 
 export default function CopilotPanel({
   harness,
@@ -20,76 +20,61 @@ export default function CopilotPanel({
   return (
     <Card
       title="Copilot"
-      right={<Badge tone={harness.version > 1 ? "violet" : "slate"}>Coaching with Harness v{harness.version}</Badge>}
-      className="h-fit"
+      right={<Pill tone={harness.version > 1 ? "accent" : "neutral"}>Harness v{harness.version}</Pill>}
+      className="h-fit lg:sticky lg:top-[4.5rem]"
     >
-      <p className="mb-3 text-sm text-slate-600">
-        Mode: <span className="font-semibold text-slate-800">{socratic ? "Socratic (asks guiding questions)" : "Direct (tells you the answer)"}</span>
-      </p>
+      <p className="-mt-2 mb-4 text-sm text-muted">{socratic ? "Asks guiding questions" : "Gives direct answers"}</p>
 
       {harness.includePriorFailures && recentMistakes.length > 0 && (
         <div className="mb-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-rose-700">Your recent mistakes</p>
-          <div className="flex flex-wrap gap-2">
-            {recentMistakes.map((m, i) => (
-              <Badge key={i} tone="rose">
+          <p className="mb-1.5 text-xs font-medium text-muted">Past mistakes</p>
+          <div className="flex flex-wrap gap-1.5">
+            {recentMistakes.map((m) => (
+              <Pill key={m} tone="bad">
                 {m}
-              </Badge>
+              </Pill>
             ))}
           </div>
         </div>
       )}
 
       {coaching ? (
-        socratic ? (
-          <SocraticCoaching text={coaching.response} />
-        ) : (
-          <div className="rounded-lg border-l-4 border-indigo-500 bg-indigo-50 p-4 text-base leading-relaxed text-slate-800">
-            {lines(coaching.response).map((line, i) => (
-              <p key={i} className={i > 0 ? "mt-2" : ""}>
-                {line}
-              </p>
-            ))}
-          </div>
-        )
+        <Messages text={coaching.response} numbered={socratic} />
       ) : (
-        <p className="rounded-lg border border-dashed border-slate-300 p-4 text-slate-500">
-          {loading ? "Copilot is thinking…" : "Make your decision. The copilot gives feedback after you submit."}
+        <p className="py-6 text-center text-sm text-muted">
+          {loading ? "Thinking…" : "Submit your decision to get feedback."}
         </p>
       )}
 
       {coaching && submitted && (
-        <p className="mt-4 text-sm text-slate-600">
-          Copilot&apos;s call: <span className="font-semibold text-slate-800">{ACTION_LABELS[coaching.action]}</span>
+        <p className="mt-4 border-t border-hairline pt-3 text-sm text-muted">
+          Copilot&apos;s answer: <span className="font-medium text-ink">{ACTION_LABELS[coaching.action]}</span>
         </p>
       )}
     </Card>
   );
 }
 
-// Questions become numbered bubbles; other lines (notes, checklist) stay as text.
-function SocraticCoaching({ text }: { text: string }) {
-  let n = 0;
-  return (
-    <ol className="space-y-3">
-      {lines(text).map((line, i) =>
-        line.trim().endsWith("?") ? (
-          <li key={i} className="flex gap-3">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white">
-              {++n}
-            </span>
-            <span className="rounded-2xl rounded-tl-sm bg-violet-50 px-4 py-2 text-base text-slate-800">{line}</span>
-          </li>
-        ) : (
-          <li key={i} className="text-sm text-slate-600">
-            {line}
-          </li>
-        ),
-      )}
-    </ol>
-  );
-}
+// Questions become chat bubbles (numbered in Socratic mode); other lines are small notes.
+function Messages({ text, numbered }: { text: string; numbered: boolean }) {
+  const lines = text.split("\n").filter((l) => l.trim());
+  const questions = lines.filter((l) => l.trim().endsWith("?"));
+  const bubbles = numbered ? questions : lines;
+  const notes = numbered ? lines.filter((l) => !questions.includes(l)) : [];
 
-function lines(text: string) {
-  return text.split("\n").filter((l) => l.trim());
+  return (
+    <div className="space-y-2">
+      {bubbles.map((line, i) => (
+        <div key={i} className="flex items-start gap-2.5">
+          {numbered && <span className="mt-2.5 w-4 shrink-0 text-right text-xs font-semibold text-accent">{i + 1}</span>}
+          <p className="rounded-2xl rounded-tl-md bg-canvas px-4 py-2.5 text-[15px] leading-snug">{line}</p>
+        </div>
+      ))}
+      {notes.map((line, i) => (
+        <p key={i} className="pt-1 text-xs leading-relaxed text-muted">
+          {line}
+        </p>
+      ))}
+    </div>
+  );
 }

@@ -12,25 +12,24 @@ export default function Header({
   onReset: () => void;
 }) {
   return (
-    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:px-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900">Reviewer Copilot</h1>
-        <p className="text-sm text-slate-600">A training copilot that rewrites its own harness for each reviewer</p>
-      </div>
-      <div className="flex items-center gap-4">
-        {showMockIndicator && (
-          <span className="flex items-center gap-2 text-sm text-slate-600">
-            <span className={`h-2.5 w-2.5 rounded-full ${usingMocks ? "bg-amber-500" : "bg-emerald-500"}`} />
-            {usingMocks ? "Mock backend" : "Live backend"}
-          </span>
-        )}
-        <button
-          onClick={onReset}
-          disabled={disabled}
-          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50"
-        >
-          {resetting ? "Resetting…" : "Reset demo"}
-        </button>
+    <header className="sticky top-0 z-10 border-b border-hairline bg-white/75 backdrop-blur-xl">
+      <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-3 lg:px-8">
+        <h1 className="text-[17px] font-semibold">Reviewer Copilot</h1>
+        <div className="flex items-center gap-5">
+          {showMockIndicator && (
+            <span className="flex items-center gap-1.5 text-xs text-muted">
+              <span className={`h-1.5 w-1.5 rounded-full ${usingMocks ? "bg-amber-500" : "bg-good"}`} />
+              {usingMocks ? "Mock data" : "Live data"}
+            </span>
+          )}
+          <button
+            onClick={onReset}
+            disabled={disabled}
+            className="text-sm font-medium text-accent hover:underline disabled:opacity-40"
+          >
+            {resetting ? "Starting over…" : "Start over"}
+          </button>
+        </div>
       </div>
     </header>
   );

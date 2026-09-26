@@ -2,6 +2,7 @@
 // so /lib/backend.ts can swap them for the real modules one at a time.
 import type { Case, AgentResponse, Evaluation, UserProfile, HarnessConfig } from "@/shared/types";
 import type { Policy } from "@/shared/ui-types";
+import { ACTION_LABELS } from "./format";
 
 // ---------- Mock data (fictional) ----------
 
@@ -94,7 +95,7 @@ export async function mockRunCase(caseData: Case, policy: Policy, harness: Harne
     lines.push("Which of those are actually in this member's file?");
     lines.push("If something is missing, what should happen before a decision is made?");
   } else {
-    lines.push(`This should be ${caseData.expectedAction}. ${directReason(caseData, policy)}`);
+    lines.push(`The right call is ${ACTION_LABELS[caseData.expectedAction].toLowerCase()}. ${directReason(caseData, policy)}`);
   }
 
   if (harness.tools.documentationChecker && docs.length > 0) {

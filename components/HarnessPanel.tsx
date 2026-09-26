@@ -6,7 +6,7 @@ import type { HarnessDiffItem, HarnessVersionRecord } from "@/shared/ui-types";
 import { diffHarness } from "@/lib/diff";
 import { FIELD_LABELS, formatValue } from "@/lib/format";
 import type { Mutation } from "./Dashboard";
-import { Badge, Card } from "./ui";
+import { Card, Pill } from "./ui";
 
 // The three mutable properties, in display order.
 const ROWS: { field: string; value: (h: HarnessConfig) => unknown }[] = [
@@ -28,21 +28,19 @@ export default function HarnessPanel({
 
   return (
     <>
-      {mutation && <MutationBanner key={mutation.key} mutation={mutation} />}
+      {mutation && <MutationCard key={mutation.key} mutation={mutation} />}
 
-      <Card title="Harness" right={<Badge tone={harness.version > 1 ? "violet" : "slate"}>v{harness.version}</Badge>}>
-        <dl className="divide-y divide-slate-100">
+      <Card title="Harness" right={<Pill tone={harness.version > 1 ? "accent" : "neutral"}>v{harness.version}</Pill>}>
+        <dl>
           {ROWS.map(({ field, value }) => (
             <div
               key={`${field}-${mutation?.key ?? 0}`}
-              className={`flex items-center justify-between gap-3 rounded px-2 py-2 ${
-                changed.has(field) ? "animate-field-pulse ring-2 ring-amber-300" : ""
+              className={`-mx-2 flex items-center justify-between rounded-lg px-2 py-2 text-[15px] ${
+                changed.has(field) ? "animate-glow" : ""
               }`}
             >
-              <dt className="text-slate-700">{FIELD_LABELS[field]}</dt>
-              <dd>
-                <Value value={value(harness)} />
-              </dd>
+              <dt>{FIELD_LABELS[field]}</dt>
+              <dd className={changed.has(field) ? "font-medium text-accent" : "text-muted"}>{formatValue(value(harness))}</dd>
             </div>
           ))}
         </dl>
@@ -53,100 +51,73 @@ export default function HarnessPanel({
   );
 }
 
-function MutationBanner({ mutation }: { mutation: Mutation }) {
-  const ref = useRef<HTMLDivElement>(null);
+function MutationCard({ mutation }: { mutation: Mutation }) {
+  const ref = useRef<HTMLElement>(null);
   useEffect(() => {
     ref.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, []);
 
   return (
-    <div
+    <section
       ref={ref}
       role="status"
-      className="animate-evolve-in rounded-xl border-2 border-amber-400 bg-amber-50 p-4 shadow-md"
+      aria-label="Harness updated"
+      className="animate-rise-in rounded-2xl bg-white p-5 shadow-[0_4px_24px_rgba(0,113,227,0.15)] ring-2 ring-accent"
     >
-      <p className="text-xl font-bold text-amber-900">
-        ⚡ Harness evolved: v{mutation.from} → v{mutation.to}
-      </p>
-      {mutation.reason && <p className="mt-1 text-amber-900">Why: {mutation.reason}</p>}
-      <DiffLines diff={mutation.diff} className="mt-3" />
-    </div>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold">The copilot adapted</h2>
+        <Pill tone="accent">
+          v{mutation.from} → v{mutation.to}
+        </Pill>
+      </div>
+      {mutation.reason && <p className="mt-1 text-sm text-muted">Because of {mutation.reason}</p>}
+      <Changes diff={mutation.diff} className="mt-3" />
+    </section>
   );
 }
 
-function DiffLines({ diff, className = "" }: { diff: HarnessDiffItem[]; className?: string }) {
+function Changes({ diff, className = "" }: { diff: HarnessDiffItem[]; className?: string }) {
   return (
-    <div className={`overflow-x-auto rounded-lg bg-white font-mono text-sm ring-1 ring-slate-200 ${className}`}>
+    <ul className={`divide-y divide-hairline ${className}`}>
       {diff.map((d) => (
-        <div key={d.field} className="border-b border-slate-100 last:border-0">
-          <div className="bg-rose-50 px-3 py-1 text-rose-800">
-            − {d.field}: {formatValue(d.from)}
-          </div>
-          <div className="bg-emerald-50 px-3 py-1 text-emerald-800">
-            + {d.field}: {formatValue(d.to)}
-          </div>
-        </div>
+        <li key={d.field} className="flex items-center justify-between gap-3 py-2 text-[15px]">
+          <span>{FIELD_LABELS[d.field] ?? d.field}</span>
+          <span className="flex items-center gap-2 whitespace-nowrap">
+            <span className="text-muted line-through">{formatValue(d.from)}</span>
+            <span className="text-muted">→</span>
+            <span className="font-semibold text-accent">{formatValue(d.to)}</span>
+          </span>
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }
 
 function HarnessHistory({ history }: { history: HarnessVersionRecord[] }) {
   const [selected, setSelected] = useState<number | null>(null);
   const index = selected !== null && selected < history.length ? selected : null;
-  const record = index !== null ? history[index] : null;
-  const prev = index ? history[index - 1] : null;
 
   return (
-    <Card title="Harness history">
-      <ul className="space-y-1">
+    <Card title="History">
+      <ul className="-mx-2">
         {history.map((h, i) => (
           <li key={`${h.config.version}-${h.createdAt}`}>
             <button
               onClick={() => setSelected(index === i ? null : i)}
               aria-expanded={index === i}
-              className={`flex w-full items-start gap-3 rounded-lg px-2 py-2 text-left hover:bg-slate-50 ${
-                index === i ? "bg-slate-50 ring-1 ring-slate-200" : ""
-              }`}
+              disabled={i === 0}
+              className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left enabled:hover:bg-canvas"
             >
-              <Badge tone={i > 0 ? "violet" : "slate"}>v{h.config.version}</Badge>
-              <span className="flex-1 text-sm">
-                <span className="block text-slate-800">{h.reason}</span>
-                <span className="block text-xs text-slate-500">{new Date(h.createdAt).toLocaleTimeString()}</span>
-              </span>
+              <span className="w-6 text-sm font-semibold">v{h.config.version}</span>
+              <span className="flex-1 text-sm text-muted">{i === 0 ? "Starting harness" : h.reason}</span>
+              <time className="text-xs text-muted">
+                {new Date(h.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+              </time>
             </button>
+            {index === i && i > 0 && <Changes diff={diffHarness(history[i - 1].config, h.config)} className="mx-2 mb-2" />}
           </li>
         ))}
       </ul>
-
-      {record && (
-        <div className="mt-3 border-t border-slate-100 pt-3">
-          {prev ? (
-            <>
-              <p className="mb-2 text-sm text-slate-600">
-                Changes from v{prev.config.version} to v{record.config.version}:
-              </p>
-              <DiffLines diff={diffHarness(prev.config, record.config)} />
-            </>
-          ) : (
-            <dl className="space-y-1 text-sm">
-              {ROWS.map(({ field, value }) => (
-                <div key={field} className="flex justify-between">
-                  <dt className="text-slate-600">{FIELD_LABELS[field]}</dt>
-                  <dd className="font-mono">{formatValue(value(record.config))}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
-        </div>
-      )}
     </Card>
   );
-}
-
-function Value({ value }: { value: unknown }) {
-  if (typeof value === "boolean") {
-    return <Badge tone={value ? "emerald" : "slate"}>{value ? "On" : "Off"}</Badge>;
-  }
-  return <Badge tone={value === "socratic" ? "violet" : "indigo"}>{String(value)}</Badge>;
 }

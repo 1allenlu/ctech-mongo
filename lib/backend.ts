@@ -199,9 +199,9 @@ export async function submitDecision(submission: ReviewerSubmission): Promise<Su
   const failure = evaluation.correct ? undefined : formatFailure(evaluation.failureType);
   const events: AppEvent[] = [
     ...state.events,
-    { ts: now, text: `Case ${caseIndex + 1}: ${failure ? `❌ ${failure}` : "✅ correct"}`, ...(failure && { failure }) },
+    { ts: now, text: `Case ${caseIndex + 1}: ${failure ?? "correct"}`, ...(failure && { failure }) },
   ];
-  if (diff.changed) events.push({ ts: now, text: `Harness mutated to v${harness.version}` });
+  if (diff.changed) events.push({ ts: now, text: `Harness updated to v${harness.version}` });
 
   await d.store.saveProgress(USER_ID, {
     currentCaseIndex: Math.max(state.currentCaseIndex, Math.min(caseIndex + 1, state.cases.length - 1)),
@@ -240,5 +240,5 @@ export async function resetDemo(): Promise<AppState> {
 function mutationReason(profile: UserProfile, evaluation: Evaluation): string {
   const skill = evaluation.skill as keyof UserProfile["failures"];
   const count = profile.failures[skill] ?? 0;
-  return `${count} ${skill} failures: ${formatFailure(evaluation.failureType)}`;
+  return `${count} ${skill.replaceAll("_", " ")} mistakes (${formatFailure(evaluation.failureType)})`;
 }

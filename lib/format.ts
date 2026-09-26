@@ -13,10 +13,11 @@ export const SKILL_LABELS: Record<Case["skill"], string> = {
   escalation: "Escalation",
 };
 
+// Plain-language names for harness fields, shown in the UI.
 export const FIELD_LABELS: Record<string, string> = {
-  coachingMode: "Coaching mode",
-  includePriorFailures: "Prior failures in coaching",
-  "tools.documentationChecker": "Documentation checker",
+  coachingMode: "Coaching style",
+  includePriorFailures: "Mentions past mistakes",
+  "tools.documentationChecker": "Document checklist",
   "tools.policyLookup": "Policy lookup",
   requireEscalationCheck: "Escalation check",
 };
@@ -34,6 +35,7 @@ export function formatFailure(failureType?: string): string {
 
 export function formatValue(value: unknown): string {
   if (value === undefined || value === null) return "—";
-  if (typeof value === "boolean") return value ? "on" : "off";
-  return String(value);
+  if (typeof value === "boolean") return value ? "On" : "Off";
+  const text = String(value);
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }

@@ -105,15 +105,15 @@ export default function Dashboard({ showMockIndicator, usingMocks }: { showMockI
       <Header showMockIndicator={showMockIndicator} usingMocks={usingMocks} resetting={busy === "reset"} onReset={reset} disabled={!!busy} />
 
       {error && (
-        <div role="alert" className="mx-4 mt-4 rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-rose-800 lg:mx-6">
+        <div role="alert" className="mx-auto mt-4 w-[calc(100%-2rem)] max-w-[1400px] rounded-xl bg-bad-soft px-4 py-3 text-sm text-bad">
           {error}
         </div>
       )}
 
       {!state || !current || !policy ? (
-        <p className="p-6 text-slate-500">{error ? "" : "Loading…"}</p>
+        <p className="p-8 text-center text-sm text-muted">{error ? "" : "Loading…"}</p>
       ) : (
-        <main className="grid flex-1 gap-4 p-4 lg:grid-cols-[1.25fr_1fr_1fr] lg:p-6">
+        <main className="mx-auto grid w-full max-w-[1400px] flex-1 items-start gap-5 px-4 py-6 lg:grid-cols-[1.3fr_1fr_1fr] lg:px-8">
           <CaseWorkspace
             key={current.id}
             caseData={current}
@@ -135,7 +135,7 @@ export default function Dashboard({ showMockIndicator, usingMocks }: { showMockI
             submitted={!!result}
             recentMistakes={recentMistakes}
           />
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-5">
             <HarnessPanel harness={state.harness} history={state.harnessHistory} mutation={mutation} />
             <ProfilePanel profile={state.profile} events={state.events} />
           </div>

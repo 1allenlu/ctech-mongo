@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { AgentResponse, Case, HarnessConfig } from "@/shared/types";
 import type { Policy, SubmitResult } from "@/shared/ui-types";
 import { ACTION_LABELS, SKILL_LABELS, formatFailure } from "@/lib/format";
-import { Badge, Card } from "./ui";
+import { Card, Pill } from "./ui";
 
 const ACTIONS = Object.keys(ACTION_LABELS) as AgentResponse["action"][];
 
@@ -40,111 +40,114 @@ export default function CaseWorkspace({
   const docs = policy.requiredDocs ?? [];
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <Card>
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <h2 className="mr-auto text-2xl font-bold">
-            Case {index + 1} <span className="text-slate-400">of {total}</span>
-          </h2>
-          <Badge tone="indigo">{SKILL_LABELS[caseData.skill]}</Badge>
-          <Badge>Policy {policy.id}</Badge>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <p className="text-sm font-medium text-muted">
+            Case {index + 1} of {total} · {SKILL_LABELS[caseData.skill]}
+          </p>
+          <Progress index={index} total={total} />
         </div>
-        <p className="text-lg leading-relaxed text-slate-800">{caseData.scenario}</p>
+        <p className="text-[19px] leading-relaxed">{caseData.scenario}</p>
+
+        {harness.tools.policyLookup && (
+          <details open className="group mt-5 border-t border-hairline pt-4">
+            <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium">
+              <span>
+                Policy {policy.id} · {policy.title}
+              </span>
+              <span className="text-muted transition group-open:rotate-90">›</span>
+            </summary>
+            <p className="mt-2 text-[15px] leading-relaxed text-muted">{policy.text}</p>
+          </details>
+        )}
       </Card>
 
-      {harness.tools.policyLookup && (
-        <Card>
-          <details open>
-            <summary className="cursor-pointer text-sm font-semibold uppercase tracking-wide text-slate-500">
-              Policy {policy.id}: {policy.title}
-            </summary>
-            <p className="mt-3 leading-relaxed text-slate-700">{policy.text}</p>
-          </details>
-        </Card>
-      )}
-
       {harness.tools.documentationChecker && docs.length > 0 && (
-        <Card
-          title="Documentation checklist"
-          right={<Badge tone="violet">New tool</Badge>}
-          className="border-violet-300 ring-2 ring-violet-200"
-        >
-          <p className="mb-3 text-sm text-slate-600">Tick each required document you can find in the member&apos;s file.</p>
-          <ul className="space-y-2">
-            {docs.map((doc) => (
-              <li key={doc}>
-                <label className="flex cursor-pointer items-center gap-3 text-base">
-                  <input
-                    type="checkbox"
-                    className="h-5 w-5 accent-violet-600"
-                    checked={checkedDocs.includes(doc)}
-                    disabled={locked}
-                    onChange={(e) =>
-                      setCheckedDocs((prev) => (e.target.checked ? [...prev, doc] : prev.filter((d) => d !== doc)))
-                    }
-                  />
-                  {doc}
-                </label>
-              </li>
-            ))}
+        <Card title="Document checklist" right={<Pill tone="accent">New</Pill>} className="ring-2 ring-accent/30">
+          <ul className="divide-y divide-hairline">
+            {docs.map((doc) => {
+              const checked = checkedDocs.includes(doc);
+              return (
+                <li key={doc}>
+                  <label className="flex cursor-pointer items-center gap-3 py-2.5 text-[15px]">
+                    <input
+                      type="checkbox"
+                      className="peer sr-only"
+                      checked={checked}
+                      disabled={locked}
+                      onChange={(e) =>
+                        setCheckedDocs((prev) => (e.target.checked ? [...prev, doc] : prev.filter((d) => d !== doc)))
+                      }
+                    />
+                    <span
+                      aria-hidden
+                      className={`flex h-5 w-5 items-center justify-center rounded-full border text-[11px] text-white peer-focus-visible:ring-2 peer-focus-visible:ring-accent ${
+                        checked ? "border-accent bg-accent" : "border-gray-300"
+                      }`}
+                    >
+                      {checked && "✓"}
+                    </span>
+                    {doc}
+                  </label>
+                </li>
+              );
+            })}
           </ul>
-          <p className="mt-3 text-sm font-medium text-slate-700">
-            {checkedDocs.length} of {docs.length} confirmed
+          <p className="mt-2 text-xs text-muted">
+            {checkedDocs.length} of {docs.length} found in the file
           </p>
         </Card>
       )}
 
       <Card title="Your decision">
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div role="radiogroup" aria-label="Decision" className="grid grid-cols-3 gap-1 rounded-xl bg-canvas p-1">
           {ACTIONS.map((a) => (
             <button
               key={a}
+              role="radio"
+              aria-checked={action === a}
               onClick={() => setAction(a)}
               disabled={locked}
-              aria-pressed={action === a}
-              className={`rounded-lg border-2 px-3 py-3 text-base font-semibold transition disabled:cursor-not-allowed ${
-                action === a
-                  ? "border-indigo-600 bg-indigo-600 text-white"
-                  : "border-slate-300 bg-white text-slate-800 hover:border-indigo-400 disabled:opacity-60"
+              className={`rounded-lg px-2 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed ${
+                action === a ? "bg-white shadow-sm" : "text-muted hover:text-ink"
               }`}
             >
               {ACTION_LABELS[a]}
             </button>
           ))}
         </div>
-        <label className="mt-4 block text-sm font-medium text-slate-700" htmlFor="rationale">
-          Rationale
-        </label>
+
         <textarea
-          id="rationale"
-          rows={3}
+          aria-label="Note"
+          rows={2}
           value={rationale}
           disabled={locked}
           onChange={(e) => setRationale(e.target.value)}
-          placeholder="Why did you choose this action?"
-          className="mt-1 w-full rounded-lg border border-slate-300 p-3 text-base focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 disabled:bg-slate-50"
+          placeholder="Add a note (optional)"
+          className="mt-3 w-full resize-none rounded-xl bg-canvas px-4 py-3 text-[15px] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:opacity-60"
         />
 
         {!result ? (
           <button
             onClick={() => action && onSubmit(action, rationale)}
             disabled={!action || disabled}
-            className="mt-3 w-full rounded-lg bg-slate-900 px-4 py-3 text-base font-semibold text-white hover:bg-slate-800 disabled:opacity-40"
+            className="mt-3 w-full rounded-full bg-accent px-4 py-3 text-[15px] font-medium text-white transition hover:brightness-110 disabled:opacity-30"
           >
-            {submitting ? "Submitting…" : "Submit decision"}
+            {submitting ? "Checking…" : "Submit"}
           </button>
         ) : (
           <>
-            <ResultBanner result={result} expected={caseData.expectedAction} />
+            <Result result={result} expected={caseData.expectedAction} />
             {isLast ? (
-              <p className="mt-3 text-center text-slate-600">All cases done. Press Reset demo to run it again.</p>
+              <p className="mt-4 text-center text-sm text-muted">That&apos;s every case. Choose Start over to run it again.</p>
             ) : (
               <button
                 onClick={onNext}
                 disabled={disabled}
-                className="mt-3 w-full rounded-lg bg-indigo-600 px-4 py-3 text-base font-semibold text-white hover:bg-indigo-500 disabled:opacity-40"
+                className="mt-4 w-full rounded-full bg-accent px-4 py-3 text-[15px] font-medium text-white transition hover:brightness-110 disabled:opacity-30"
               >
-                Next case →
+                Next case
               </button>
             )}
           </>
@@ -154,18 +157,47 @@ export default function CaseWorkspace({
   );
 }
 
-function ResultBanner({ result, expected }: { result: SubmitResult; expected: AgentResponse["action"] }) {
+function Progress({ index, total }: { index: number; total: number }) {
+  return (
+    <div className="flex gap-1.5" aria-hidden>
+      {Array.from({ length: total }, (_, i) => (
+        <span
+          key={i}
+          className={`h-1.5 rounded-full transition-all ${
+            i === index ? "w-5 bg-accent" : i < index ? "w-1.5 bg-ink/40" : "w-1.5 bg-hairline"
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function Result({ result, expected }: { result: SubmitResult; expected: AgentResponse["action"] }) {
   const { correct, failureType } = result.evaluation;
+  const failure = formatFailure(failureType);
   return (
     <div
       role="status"
       aria-label="Decision result"
-      className={`mt-4 rounded-lg border-2 px-4 py-3 ${
-        correct ? "border-emerald-400 bg-emerald-50 text-emerald-900" : "border-rose-400 bg-rose-50 text-rose-900"
-      }`}
+      className={`mt-4 flex items-start gap-3 rounded-xl p-4 ${correct ? "bg-good-soft" : "bg-bad-soft"}`}
     >
-      <p className="text-lg font-bold">{correct ? "✅ Correct" : `❌ Incorrect: ${formatFailure(failureType)}`}</p>
-      {!correct && <p className="mt-1">Expected action: {ACTION_LABELS[expected]}</p>}
+      <span
+        aria-hidden
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${
+          correct ? "bg-good" : "bg-bad"
+        }`}
+      >
+        {correct ? "✓" : "✕"}
+      </span>
+      <div>
+        <p className={`font-semibold ${correct ? "text-good" : "text-bad"}`}>{correct ? "Correct" : "Not quite"}</p>
+        {!correct && (
+          <p className="mt-0.5 text-[15px] text-ink">
+            {failure.charAt(0).toUpperCase() + failure.slice(1)}. The right call was{" "}
+            <span className="font-medium">{ACTION_LABELS[expected].toLowerCase()}</span>.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
