@@ -10,14 +10,17 @@ export function SkillsCard({ profile }: { profile: UserProfile }) {
     <Card title="Skills">
       <ul className="space-y-3.5">
         {SKILLS.map((skill) => {
-          const score = Math.max(0, Math.min(100, profile.skills[skill]));
+          // `skills` counts correct answers, `failures` incorrect ones.
+          const correct = profile.skills[skill];
           const mistakes = profile.failures[skill];
+          const attempts = correct + mistakes;
+          const score = attempts ? Math.round((correct / attempts) * 100) : 0;
           return (
             <li key={skill}>
               <div className="mb-1.5 flex items-baseline justify-between text-sm">
                 <span>{SKILL_LABELS[skill]}</span>
                 <span className={mistakes > 0 ? "font-medium text-bad" : "text-muted"}>
-                  {mistakes === 0 ? "No mistakes" : `${mistakes} ${mistakes === 1 ? "mistake" : "mistakes"}`}
+                  {attempts === 0 ? "Not practiced yet" : `${correct} of ${attempts} correct`}
                 </span>
               </div>
               <div
@@ -29,7 +32,7 @@ export function SkillsCard({ profile }: { profile: UserProfile }) {
                 aria-valuemax={100}
               >
                 <div
-                  className={`h-full rounded-full transition-all duration-700 ${mistakes > 0 ? "bg-bad" : "bg-accent"}`}
+                  className={`h-full rounded-full transition-all duration-700 ${score < 50 ? "bg-bad" : "bg-good"}`}
                   style={{ width: `${score}%` }}
                 />
               </div>

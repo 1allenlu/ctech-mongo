@@ -1,5 +1,6 @@
 // The only place the app touches teammates' code. The UI and API routes call
-// getState / submitDecision / resetDemo; this file picks mocks or real modules.
+// getState / submitDecision / getCoaching / resetDemo; this file picks mocks
+// (USE_MOCKS unset or "true") or real modules (USE_MOCKS=false).
 import type { Case, AgentResponse, Evaluation, UserProfile, HarnessConfig } from "@/shared/types";
 import type {
   Policy,
@@ -20,20 +21,23 @@ import {
   mockUpdateUserProfile,
   mockEvolveHarness,
 } from "./mocks";
+// Person 3: evaluation + harness evolution (saves to MongoDB itself).
+import { evaluate } from "@/evaluator/evaluator";
+import { updateUserProfile } from "@/user-model/userModel";
+import { evolveHarness, saveHarnessVersion } from "@/harness/evolver";
+import { closeMongoDB, getDb } from "@/shared/mongodb";
 
-// ---------- What the adapter needs from teammates ----------
+// ---------- What the adapter needs ----------
 
 // Where the case pointer and event log live. UI-only, not part of teammates' data.
 type Progress = Pick<AppState, "currentCaseIndex" | "events">;
 
-// Person 1's DB helpers. The current harness is the last entry in the history.
+// Reads plus the UI-only progress. The current harness is the last history entry.
 type Store = {
   loadCases(): Promise<Case[]>;
   loadPolicies(): Promise<Policy[]>;
   loadProfile(userId: string): Promise<UserProfile>;
-  saveProfile(profile: UserProfile): Promise<void>;
   loadHarnessHistory(userId: string): Promise<HarnessVersionRecord[]>;
-  saveHarnessVersion(userId: string, record: HarnessVersionRecord): Promise<void>;
   loadProgress(userId: string): Promise<Progress>;
   saveProgress(userId: string, progress: Progress): Promise<void>;
   reset(userId: string): Promise<void>;
@@ -43,8 +47,10 @@ type Deps = {
   store: Store;
   runCase(caseData: Case, policy: Policy, harness: HarnessConfig): Promise<AgentResponse>;
   evaluate(caseData: Case, response: AgentResponse): Evaluation | Promise<Evaluation>;
-  updateUserProfile(profile: UserProfile, evaluation: Evaluation): UserProfile | Promise<UserProfile>;
+  // Updates the profile with one evaluation and saves it.
+  recordEvaluation(userId: string, evaluation: Evaluation): Promise<UserProfile>;
   evolveHarness(profile: UserProfile, harness: HarnessConfig): HarnessConfig | Promise<HarnessConfig>;
+  saveHarnessVersion(userId: string, before: HarnessConfig, after: HarnessConfig, reason: string): Promise<void>;
 };
 
 const USER_ID = "demo-reviewer";
@@ -59,10 +65,20 @@ const HARNESS_V1: HarnessConfig = {
 function freshProfile(userId: string): UserProfile {
   return {
     userId,
-    skills: { clarification: 50, policy_reasoning: 50, escalation: 50 },
+    skills: { clarification: 0, policy_reasoning: 0, escalation: 0 },
     failures: { clarification: 0, policy_reasoning: 0, escalation: 0 },
   };
 }
+
+function freshProgress(now: string): Progress {
+  return { currentCaseIndex: 0, events: [{ ts: now, kind: "session", text: "Session started on Harness v1" }] };
+}
+
+const initialRecord = (createdAt: string): HarnessVersionRecord => ({
+  config: HARNESS_V1,
+  reason: "Initial harness",
+  createdAt,
+});
 
 // ---------- Mock wiring ----------
 
@@ -70,11 +86,7 @@ type MemoryData = { profile: UserProfile; history: HarnessVersionRecord[]; progr
 
 function freshMemory(userId: string): MemoryData {
   const now = new Date().toISOString();
-  return {
-    profile: freshProfile(userId),
-    history: [{ config: HARNESS_V1, reason: "Initial harness", createdAt: now }],
-    progress: { currentCaseIndex: 0, events: [{ ts: now, kind: "session", text: "Session started on Harness v1" }] },
-  };
+  return { profile: freshProfile(userId), history: [initialRecord(now)], progress: freshProgress(now) };
 }
 
 // Kept on globalThis so the data survives Next.js hot reloads in dev.
@@ -82,51 +94,108 @@ function freshMemory(userId: string): MemoryData {
 const g = globalThis as unknown as { __mockData?: Record<string, MemoryData> };
 const memory = (userId: string) => ((g.__mockData ??= {})[userId] ??= freshMemory(userId));
 
-const memoryStore: Store = {
-  loadCases: async () => mockCases,
-  loadPolicies: async () => mockPolicies,
-  loadProfile: async (userId) => memory(userId).profile,
-  saveProfile: async (profile) => {
-    memory(profile.userId).profile = profile;
-  },
-  loadHarnessHistory: async (userId) => memory(userId).history,
-  saveHarnessVersion: async (userId, record) => {
-    const m = memory(userId);
-    m.history = [...m.history, record];
-  },
-  loadProgress: async (userId) => memory(userId).progress,
-  saveProgress: async (userId, progress) => {
-    memory(userId).progress = progress;
-  },
-  reset: async (userId) => {
-    (g.__mockData ??= {})[userId] = freshMemory(userId);
-  },
-};
-
 const mockDeps: Deps = {
-  store: memoryStore,
+  store: {
+    loadCases: async () => mockCases,
+    loadPolicies: async () => mockPolicies,
+    loadProfile: async (userId) => memory(userId).profile,
+    loadHarnessHistory: async (userId) => memory(userId).history,
+    loadProgress: async (userId) => memory(userId).progress,
+    saveProgress: async (userId, progress) => {
+      memory(userId).progress = progress;
+    },
+    reset: async (userId) => {
+      (g.__mockData ??= {})[userId] = freshMemory(userId);
+    },
+  },
   runCase: mockRunCase,
   evaluate: mockEvaluate,
-  updateUserProfile: mockUpdateUserProfile,
+  recordEvaluation: async (userId, evaluation) => {
+    const m = memory(userId);
+    m.profile = mockUpdateUserProfile(m.profile, evaluation);
+    return m.profile;
+  },
   evolveHarness: mockEvolveHarness,
+  saveHarnessVersion: async (userId, _before, after, reason) => {
+    const m = memory(userId);
+    m.history = [...m.history, { config: after, reason, createdAt: new Date().toISOString() }];
+  },
 };
 
-// ---------- Real wiring (Phase 4) ----------
+// ---------- Real wiring ----------
 
-// Swap in one piece at a time: DB helpers, then evaluate/updateUserProfile,
-// then evolveHarness, then runCase. Anything not yet real can stay a mock.
-function realDeps(): Deps {
-  throw new Error("Real backend not wired yet. Set USE_MOCKS=true, or add teammates' modules in lib/backend.ts.");
+// Person 3's collections: `user_profiles` (keyed by userId) and `harness_versions`
+// (one document per mutation). `sessions` is ours: case pointer + activity log.
+type ProfileDoc = UserProfile & { _id: string };
+type HarnessVersionDoc = { userId: string; toVersion: number; after: HarnessConfig; reason: string; timestamp: Date };
+type SessionDoc = Progress & { _id: string; startedAt: string };
+
+async function loadSession(userId: string): Promise<SessionDoc> {
+  const now = new Date().toISOString();
+  const session = await (await getDb()).collection<SessionDoc>("sessions").findOneAndUpdate(
+    { _id: userId },
+    { $setOnInsert: { startedAt: now, ...freshProgress(now) } },
+    { upsert: true, returnDocument: "after" },
+  );
+  return session!;
 }
 
+const mongoStore: Store = {
+  // Person 1 hasn't delivered cases/policies yet; these stay mocks until then.
+  loadCases: async () => mockCases,
+  loadPolicies: async () => mockPolicies,
+  loadProfile: async (userId) => {
+    const doc = await (await getDb()).collection<ProfileDoc>("user_profiles").findOne({ _id: userId });
+    return doc ? { userId, skills: doc.skills, failures: doc.failures } : freshProfile(userId);
+  },
+  loadHarnessHistory: async (userId) => {
+    const [session, versions] = await Promise.all([
+      loadSession(userId),
+      (await getDb())
+        .collection<HarnessVersionDoc>("harness_versions")
+        .find({ userId })
+        .sort({ toVersion: 1 })
+        .toArray(),
+    ]);
+    return [
+      initialRecord(session.startedAt),
+      ...versions.map((v) => ({ config: v.after, reason: v.reason, createdAt: v.timestamp.toISOString() })),
+    ];
+  },
+  loadProgress: async (userId) => {
+    const { currentCaseIndex, events } = await loadSession(userId);
+    return { currentCaseIndex, events };
+  },
+  saveProgress: async (userId, progress) => {
+    await (await getDb()).collection<SessionDoc>("sessions").updateOne({ _id: userId }, { $set: progress });
+  },
+  reset: async (userId) => {
+    const db = await getDb();
+    await Promise.all([
+      db.collection<ProfileDoc>("user_profiles").deleteOne({ _id: userId }),
+      db.collection("harness_versions").deleteMany({ userId }),
+      db.collection<SessionDoc>("sessions").deleteOne({ _id: userId }),
+    ]);
+  },
+};
+
+const realDeps: Deps = {
+  store: mongoStore,
+  runCase: mockRunCase, // Person 2: swap in the real runCase here.
+  evaluate,
+  recordEvaluation: (userId, evaluation) => updateUserProfile(userId, evaluation),
+  evolveHarness,
+  saveHarnessVersion,
+};
+
 function deps(): Deps {
-  return process.env.USE_MOCKS === "false" ? realDeps() : mockDeps;
+  return process.env.USE_MOCKS === "false" ? realDeps : mockDeps;
 }
 
 // ---------- Evaluation + evolution (Person 3's pipeline, one call) ----------
 
-// evaluate → updateUserProfile → evolveHarness → save profile and, if the
-// harness changed, the new version with its reason. Returns everything the UI shows.
+// evaluate → update and save the profile → evolveHarness → if the harness
+// changed, save the new version with its reason. Returns everything the UI shows.
 export async function processEvaluationAndEvolve(
   userId: string,
   caseData: Case,
@@ -136,20 +205,13 @@ export async function processEvaluationAndEvolve(
   const d = deps();
 
   const evaluation = await d.evaluate(caseData, agentResponse);
-  const profile = await d.updateUserProfile(await d.store.loadProfile(userId), evaluation);
-  await d.store.saveProfile(profile);
+  const profile = await d.recordEvaluation(userId, evaluation);
 
   const harness = await d.evolveHarness(profile, currentHarness);
   const evolved = harness.version !== currentHarness.version;
   const diff = getHarnessDiff(currentHarness, harness, evolved ? mutationReason(profile, evaluation) : undefined);
 
-  if (evolved) {
-    await d.store.saveHarnessVersion(userId, {
-      config: harness,
-      reason: diff.reason!,
-      createdAt: new Date().toISOString(),
-    });
-  }
+  if (evolved) await d.saveHarnessVersion(userId, currentHarness, harness, diff.reason!);
 
   return { evaluation, profile, harness, diff };
 }
@@ -233,6 +295,11 @@ export async function getCoaching(caseId: string): Promise<AgentResponse> {
 export async function resetDemo(): Promise<AppState> {
   await deps().store.reset(USER_ID);
   return getState();
+}
+
+// For scripts: close the MongoDB connection so the process can exit.
+export async function closeBackend(): Promise<void> {
+  await closeMongoDB();
 }
 
 // ---------- Helpers ----------

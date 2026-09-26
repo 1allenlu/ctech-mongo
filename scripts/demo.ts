@@ -1,10 +1,13 @@
-// Runs the demo sequence against the mock backend and checks each step.
-// Usage: npm run demo
+// Runs the demo sequence and checks each step.
+// Usage: npm run demo                    (mock backend)
+//        USE_MOCKS=false npm run demo    (Person 3's code + MongoDB Atlas; resets the demo user)
 import assert from "node:assert/strict";
-import { getState, submitDecision, resetDemo } from "@/lib/backend";
+import { getState, submitDecision, resetDemo, closeBackend } from "@/lib/backend";
+import { formatFailure } from "@/lib/format";
 
 async function main() {
-  process.env.USE_MOCKS = "true";
+  process.env.USE_MOCKS ??= "true";
+  console.log(`Backend: ${process.env.USE_MOCKS === "false" ? "real (MongoDB)" : "mocks"}\n`);
   let state = await resetDemo();
   assert.equal(state.harness.version, 1);
   console.log("Start: Harness v1 (direct, no prior failures, no doc checker)\n");
@@ -14,7 +17,7 @@ async function main() {
     const c = state.cases[state.currentCaseIndex];
     const r = await submitDecision({ caseId: c.id, action: "approve", rationale: "Looks routine." });
     assert.equal(r.evaluation.correct, false);
-    assert.equal(r.evaluation.failureType, "missing_documentation");
+    assert.equal(formatFailure(r.evaluation.failureType), "missing required documentation");
     console.log(`Case ${n} (${c.id}): ❌ ${r.evaluation.failureType}, harness v${r.harness.version}`);
 
     if (n === 1) assert.equal(r.mutated, false);
@@ -56,7 +59,9 @@ async function main() {
   console.log("\nReset: back to Harness v1, case 1. Demo sequence OK.");
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+main()
+  .catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+  })
+  .finally(closeBackend);

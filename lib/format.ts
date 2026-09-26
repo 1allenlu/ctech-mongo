@@ -31,6 +31,10 @@ export const HARNESS_ROWS: { field: string; value: (h: HarnessConfig) => unknown
 
 const FAILURE_LABELS: Record<string, string> = {
   missing_documentation: "missing required documentation",
+  // Person 3's evaluator reports `<skill>_incorrect_action`.
+  clarification_incorrect_action: "missing required documentation",
+  escalation_incorrect_action: "missed an escalation",
+  policy_reasoning_incorrect_action: "misapplied the policy",
   missed_escalation: "missed an escalation",
   unnecessary_hold: "held a claim that should be approved",
 };

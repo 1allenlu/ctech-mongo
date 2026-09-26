@@ -129,19 +129,13 @@ export function mockEvaluate(caseData: Case, response: AgentResponse): Evaluatio
   return { correct: false, skill: caseData.skill, failureType };
 }
 
-// Person 3: updateUserProfile. Skill scores are 0-100.
+// Person 3: updateUserProfile. Same meaning as the real one: `skills` counts
+// correct answers and `failures` counts incorrect ones.
 export function mockUpdateUserProfile(profile: UserProfile, evaluation: Evaluation): UserProfile {
   const skill = evaluation.skill as keyof UserProfile["skills"];
   if (!(skill in profile.skills)) return profile;
-
-  const delta = evaluation.correct ? 10 : -15;
-  return {
-    ...profile,
-    skills: { ...profile.skills, [skill]: clamp(profile.skills[skill] + delta, 0, 100) },
-    failures: evaluation.correct
-      ? profile.failures
-      : { ...profile.failures, [skill]: profile.failures[skill] + 1 },
-  };
+  const counter = evaluation.correct ? "skills" : "failures";
+  return { ...profile, [counter]: { ...profile[counter], [skill]: profile[counter][skill] + 1 } };
 }
 
 // Person 3: evolveHarness. Documentation misses are clarification failures, so
@@ -158,8 +152,4 @@ export function mockEvolveHarness(profile: UserProfile, harness: HarnessConfig):
     includePriorFailures: true,
     tools: { ...harness.tools, documentationChecker: true },
   };
-}
-
-function clamp(n: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, n));
 }
