@@ -32,9 +32,16 @@ export default function Dashboard({ showMockIndicator, usingMocks }: { showMockI
     setSubmitted(null);
   }
 
-  useEffect(() => {
+  function fetchState() {
     api.state().then(show, (e: Error) => setError(e.message));
-  }, []);
+  }
+
+  function retry() {
+    setError(null);
+    fetchState();
+  }
+
+  useEffect(fetchState, []);
 
   const current = state?.cases[viewIndex];
   const policy = state?.policies.find((p) => p.id === current?.policyId);
@@ -113,8 +120,14 @@ export default function Dashboard({ showMockIndicator, usingMocks }: { showMockI
       <Header showMockIndicator={showMockIndicator} usingMocks={usingMocks} resetting={busy === "reset"} onReset={reset} disabled={!!busy} />
 
       {error && (
-        <div role="alert" className="mx-auto mt-4 w-[calc(100%-2rem)] max-w-[1400px] rounded-xl bg-bad-soft px-4 py-3 text-sm text-bad">
-          {error}
+        <div
+          role="alert"
+          className="mx-auto mt-4 flex w-[calc(100%-2rem)] max-w-[1400px] items-center justify-between gap-4 rounded-xl bg-bad-soft px-4 py-3 text-sm text-bad"
+        >
+          <span>{error}</span>
+          <button onClick={state ? () => setError(null) : retry} className="shrink-0 font-medium hover:underline">
+            {state ? "Dismiss" : "Try again"}
+          </button>
         </div>
       )}
 

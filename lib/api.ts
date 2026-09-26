@@ -12,8 +12,12 @@ export function parseSubmission(body: unknown): ReviewerSubmission | null {
 }
 
 export function errorResponse(err: unknown): Response {
+  console.error("[api]", err);
+  // MongoDB driver errors (MongoServerSelectionError, MongoNetworkError, ...).
+  if (err instanceof Error && err.name.startsWith("Mongo")) {
+    return Response.json({ error: "Can't reach the database. Try again in a moment." }, { status: 503 });
+  }
   const message = err instanceof Error ? err.message : String(err);
   const status = err instanceof SyntaxError ? 400 : message.startsWith("Unknown ") ? 404 : 500;
-  console.error("[api]", err);
   return Response.json({ error: message }, { status });
 }

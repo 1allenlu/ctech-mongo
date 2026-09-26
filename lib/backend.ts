@@ -13,6 +13,7 @@ import type {
 } from "@/shared/ui-types";
 import { getHarnessDiff } from "./diff";
 import { formatFailure } from "./format";
+import { withFallback, withServerSelectionTimeout } from "./resilience";
 import {
   mockCases,
   mockPolicies,
@@ -54,6 +55,15 @@ type Deps = {
 };
 
 const USER_ID = "demo-reviewer";
+
+// The coach must answer within this, or a canned harness-appropriate message is used.
+const COACH_TIMEOUT_MS = 10_000;
+
+// Fail fast if Atlas is unreachable instead of hanging for the driver's 30s default.
+// Set here because Person 3's shared/mongodb.ts builds the client from this variable.
+if (process.env.MONGODB_URI) {
+  process.env.MONGODB_URI = withServerSelectionTimeout(process.env.MONGODB_URI, 5_000);
+}
 
 const HARNESS_V1: HarnessConfig = {
   version: 1,
@@ -255,7 +265,7 @@ export async function submitDecision(submission: ReviewerSubmission): Promise<Su
   );
 
   // Coaching from the copilot, using the (possibly new) harness.
-  const coaching = await d.runCase(caseData, policy, harness);
+  const coaching = await coach(d, caseData, policy, harness);
 
   const now = new Date().toISOString();
   const failure = evaluation.correct ? undefined : formatFailure(evaluation.failureType);
@@ -289,7 +299,7 @@ export async function getCoaching(caseId: string): Promise<AgentResponse> {
   if (!caseData) throw new Error(`Unknown case: ${caseId}`);
   const policy = state.policies.find((p) => p.id === caseData.policyId);
   if (!policy) throw new Error(`Unknown policy: ${caseData.policyId}`);
-  return d.runCase(caseData, policy, state.harness);
+  return coach(d, caseData, policy, state.harness);
 }
 
 export async function resetDemo(): Promise<AppState> {
@@ -303,6 +313,17 @@ export async function closeBackend(): Promise<void> {
 }
 
 // ---------- Helpers ----------
+
+// runCase with a time limit. If it's slow or fails, the mock coach stands in: its
+// text follows the same harness, so the demo still shows the right behavior.
+function coach(d: Deps, caseData: Case, policy: Policy, harness: HarnessConfig): Promise<AgentResponse> {
+  return withFallback(
+    () => d.runCase(caseData, policy, harness),
+    () => mockRunCase(caseData, policy, harness),
+    COACH_TIMEOUT_MS,
+    "runCase",
+  );
+}
 
 function mutationReason(profile: UserProfile, evaluation: Evaluation): string {
   const skill = evaluation.skill as keyof UserProfile["failures"];
